@@ -15,10 +15,6 @@ extern "C" {
 
 #define SHA256_FINGERPRINT_SIZE (95 + 1)
 
-#define DTLS_TRANSPORT_STATE_CLOSED     0
-#define DTLS_TRANSPORT_STATE_CONNECTING 1
-#define DTLS_TRANSPORT_STATE_CONNECTED  2
-
 struct dtls_context {
   SSL_CTX *ctx;
   char fingerprint[SHA256_FINGERPRINT_SIZE];
@@ -29,7 +25,6 @@ struct dtls_transport {
   BIO *incoming_bio;
   BIO *outgoing_bio;
   int role;
-  int state;
   GMutex dtls_mutex;
 };
 

@@ -3,6 +3,7 @@
 // This file is licensed under a GNU GPLv3 license.
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "common.h"
 #include "dtls.h"
 
@@ -96,7 +97,6 @@ create_dtls_transport(const struct dtls_context *context, int client)
   struct dtls_transport *dtls = (struct dtls_transport *)calloc(1, sizeof *dtls);
   if (dtls == NULL)
     return NULL;
-  dtls->state = DTLS_TRANSPORT_STATE_CLOSED;
 
   SSL *ssl = SSL_new(context->ctx);
   if (ssl == NULL)
