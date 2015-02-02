@@ -1,6 +1,6 @@
-## librtcdc is a WebRTC DataChannel implementation that works everywhere (coming soon)
+## librtcdc is a small WebRTC DataChannel implementation that works everywhere (coming soon)
 
-#### Require
+#### Prerequisites
 
 ICE/UDP - libnice
 
