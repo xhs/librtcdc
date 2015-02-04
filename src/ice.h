@@ -32,7 +32,7 @@ void
 destroy_ice_transport(struct ice_transport *ice);
 
 gpointer
-ice_thread(gpointer user_data);
+ice_thread(gpointer ice_trans);
 
 #ifdef  __cplusplus
 }

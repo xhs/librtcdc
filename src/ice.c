@@ -2,11 +2,6 @@
 // Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
 // This file is licensed under a GNU GPLv3 license.
 
-#include <sys/socket.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -49,7 +44,10 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
   BIO_write(dtls->incoming_bio, buf, len);
   g_mutex_unlock(&dtls->dtls_mutex);
 
-  if (SSL_is_init_finished(dtls->ssl) != 1) {
+  if (!dtls->handshake_done && SSL_is_init_finished(dtls->ssl))
+    dtls->handshake_done = TRUE;
+
+  if (!dtls->handshake_done) {
     g_mutex_lock(&dtls->dtls_mutex);
     SSL_do_handshake(dtls->ssl);
     g_mutex_unlock(&dtls->dtls_mutex);
@@ -148,8 +146,8 @@ ice_thread(gpointer user_data)
   if (ice->exit_thread)
     return NULL;
 
-  if (dtls->role == PEER_CLIENT)
-    SSL_do_handshake(dtls->ssl);
+  // if (dtls->role == PEER_CLIENT)
+  //   SSL_do_handshake(dtls->ssl);
 
   char buf[BUFFER_SIZE];
   while (!ice->exit_thread) {
@@ -162,7 +160,7 @@ ice_thread(gpointer user_data)
         nice_agent_send(ice->agent, ice->stream_id, 1, nbytes, buf);
       }
 
-      if (SSL_is_init_finished(dtls->ssl) != 1) {
+      if (!dtls->handshake_done) {
         g_mutex_lock(&dtls->dtls_mutex);
         SSL_do_handshake(dtls->ssl);
         g_mutex_unlock(&dtls->dtls_mutex);

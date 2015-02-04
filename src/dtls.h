@@ -25,6 +25,7 @@ struct dtls_transport {
   BIO *incoming_bio;
   BIO *outgoing_bio;
   int role;
+  gboolean handshake_done;
   GMutex dtls_mutex;
 };
 

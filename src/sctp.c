@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include "common.h"
 #include "util.h"
+#include "ice.h"
+#include "dtls.h"
 #include "sctp.h"
 
 static int
@@ -147,4 +149,64 @@ destroy_sctp_transport(struct sctp_transport *sctp)
 #endif
   free(sctp);
   sctp = NULL;
+}
+
+gpointer
+sctp_thread(gpointer user_data)
+{
+  struct ice_transport *ice = (struct ice_transport *)user_data;
+  struct dtls_transport *dtls = ice->dtls;
+  struct sctp_transport *sctp = ice->sctp;
+
+  while (!ice->exit_thread && !ice->negotiation_done)
+    g_usleep(10000);
+  if (ice->exit_thread)
+    return NULL;
+
+  // if (sctp->role == PEER_CLIENT) {
+  //   //...
+  // } else {
+  //   usrsctp_listen(sctp->sock, 1);
+  // }
+
+  while (!ice->exit_thread && !dtls->handshake_done)
+    g_usleep(10000);
+  if (ice->exit_thread)
+    return NULL;
+
+  char buf[BUFFER_SIZE];
+  while (!ice->exit_thread) {
+    if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0) {
+      g_usleep(5000);
+      continue;
+    }
+
+    if (BIO_ctrl_pending(sctp->incoming_bio) > 0) {
+      g_mutex_lock(&sctp->sctp_mutex);
+      int nbytes = BIO_read(sctp->incoming_bio, buf, sizeof buf);
+      g_mutex_unlock(&sctp->sctp_mutex);
+#ifdef DEBUG_SCTP
+      send(sctp->incoming_stub, buf, nbytes, 0);
+#endif
+      if (nbytes > 0) {
+        usrsctp_conninput(sctp, buf, nbytes, 0);
+      }
+    }
+
+    if (BIO_ctrl_pending(sctp->outgoing_bio) > 0) {
+      g_mutex_lock(&sctp->sctp_mutex);
+      int nbytes = BIO_read(sctp->outgoing_bio, buf, sizeof buf);
+      g_mutex_unlock(&sctp->sctp_mutex);
+#ifdef DEBUG_SCTP
+      send(sctp->outgoing_stub, buf, nbytes, 0);
+#endif
+      if (nbytes > 0) {
+        g_mutex_lock(&dtls->dtls_mutex);
+        SSL_write(dtls->ssl, buf, nbytes);
+        g_mutex_unlock(&dtls->dtls_mutex);
+      }
+    }
+  }
+
+  return NULL;
 }
