@@ -11,20 +11,28 @@ extern "C" {
 
 #include <agent.h>
 #include <glib.h>
+#include "util.h"
+#include "dtls.h"
 
 struct ice_transport {
+  struct dtls_transport *dtls;
+  struct sctp_transport *sctp;
   NiceAgent *agent;
+  guint stream_id;
+  GMainLoop *loop;
+  gboolean exit_thread;
   gboolean gathering_done;
-  GMutex gather_mutex;
   gboolean negotiation_done;
-  GMutex negotiate_mutex;
 };
 
 struct ice_transport *
-create_ice_transport(void);
+create_ice_transport(struct dtls_transport *dtls, struct sctp_transport *sctp, int controlling);
 
 void
 destroy_ice_transport(struct ice_transport *ice);
+
+gpointer
+ice_thread(gpointer user_data);
 
 #ifdef  __cplusplus
 }
