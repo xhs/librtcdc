@@ -45,7 +45,7 @@ create_sctp_transport(int lport, int rport)
   if (lport > 0)
     sctp->local_port = lport;
   else
-    sctp->local_port = random_port(10000, 60000);
+    sctp->local_port = random_integer(10000, 60000);
 
   if (rport > 0) {
     sctp->role = PEER_CLIENT;

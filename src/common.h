@@ -14,6 +14,8 @@ extern "C" {
 #define PEER_CLIENT 0
 #define PEER_SERVER 1
 
+#define SESSION_ID_SIZE 16
+
 #ifdef  __cplusplus
 }
 #endif

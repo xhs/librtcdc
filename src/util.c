@@ -5,13 +5,24 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include "util.h"
 
 int
-random_port(int min, int max)
+random_integer(int min, int max)
 {
   assert(min < max);
   srand(time(NULL));
   return rand() % (max + 1 - min) + min;
+}
+
+void
+random_number_string(char *dest, int len)
+{
+  const static char *numbers = "0123456789";
+  for (int i = 0; i < len; ++i) {
+    int r = random_integer(0, 9);
+    *(dest + i) = numbers[r];
+  }
 }
