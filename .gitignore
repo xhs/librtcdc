@@ -1,1 +1,3 @@
 *.o
+src/*.crt
+src/*.key
