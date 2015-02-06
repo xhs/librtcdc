@@ -1,3 +1,4 @@
 *.o
 src/*.crt
 src/*.key
+src/test

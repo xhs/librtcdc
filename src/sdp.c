@@ -56,8 +56,6 @@ generate_local_sdp(struct ice_transport *ice, struct dtls_context *ctx, int clie
   pos += sprintf(buf + pos, "a=mid:data\r\n");
   pos += sprintf(buf + pos, "a=sctpmap:%d webrtc-datachannel 1024\r\n", ice->sctp->local_port);
 
-  printf("local sdp:\n%s", buf);
-
   return strndup(buf, pos);
 }
 
@@ -81,8 +79,6 @@ generate_local_candidate_sdp(struct ice_transport *ice)
   }
   g_strfreev(lines);
 
-  printf("local candidate:\n%s", buf);
-
   return strndup(buf, pos);
 }
 
@@ -102,13 +98,12 @@ parse_remote_sdp(struct ice_transport *ice, const char *rsdp)
   memset(buf, 0, sizeof buf);
   int pos = 0;
   for (int i = 0; lines && lines[i]; ++i) {
-    if (g_str_has_prefix(lines[i], "a=application:")) {
+    if (g_str_has_prefix(lines[i], "m=application")) {
       gchar **columns = g_strsplit(lines[i], " ", 0);
       if (columns[0] && columns[1] && columns[2] && columns[3])
         ice->sctp->remote_port = atoi(columns[3]);
       g_strfreev(columns);
     }
-
     pos += sprintf(buf + pos, "%s\n", lines[i]);
   }
   g_strfreev(lines);
@@ -116,10 +111,7 @@ parse_remote_sdp(struct ice_transport *ice, const char *rsdp)
   if (ice->sctp->remote_port <= 0)
     return -1;
 
-  if (nice_agent_parse_remote_sdp(ice->agent, buf) < 0)
-    return -1;
-
-  return 0;
+  return nice_agent_parse_remote_sdp(ice->agent, buf);
 }
 
 int
@@ -134,10 +126,7 @@ parse_remote_candidate_sdp(struct ice_transport *ice, const char *rcand_sdp)
 
   GSList *list = NULL;
   list = g_slist_append(list, rcand);
-
-  int ret = 0;
-  if (nice_agent_set_remote_candidates(ice->agent, ice->stream_id, 1, list) <= 0)
-    ret = -1;
+  int ret = nice_agent_set_remote_candidates(ice->agent, ice->stream_id, 1, list);
 
   nice_candidate_free(rcand);
   g_slist_free(list);
