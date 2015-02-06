@@ -116,7 +116,7 @@ parse_remote_sdp(struct ice_transport *ice, const char *rsdp)
   if (ice->sctp->remote_port <= 0)
     return -1;
 
-  if (nice_agent_parse_remote_sdp(ice->agent, buf) <= 0)
+  if (nice_agent_parse_remote_sdp(ice->agent, buf) < 0)
     return -1;
 
   return 0;
