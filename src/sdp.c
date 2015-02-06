@@ -92,7 +92,31 @@ parse_remote_sdp(struct ice_transport *ice, const char *rsdp)
   if (ice == NULL || ice->agent == NULL || rsdp == NULL)
     return -1;
 
-  if (nice_agent_parse_remote_sdp(ice->agent, rsdp) <= 0)
+  gchar **lines;
+  if (g_strstr_len("\r\n", strlen(rsdp), rsdp) == NULL)
+    lines = g_strsplit(rsdp, "\n", 0);
+  else
+    lines = g_strsplit(rsdp, "\r\n", 0);
+
+  char buf[BUFFER_SIZE];
+  memset(buf, 0, sizeof buf);
+  int pos = 0;
+  for (int i = 0; lines && lines[i]; ++i) {
+    if (g_str_has_prefix(lines[i], "a=application:")) {
+      gchar **columns = g_strsplit(lines[i], " ", 0);
+      if (columns[0] && columns[1] && columns[2] && columns[3])
+        ice->sctp->remote_port = atoi(columns[3]);
+      g_strfreev(columns);
+    }
+
+    pos += sprintf(buf + pos, "%s\n", lines[i]);
+  }
+  g_strfreev(lines);
+
+  if (ice->sctp->remote_port <= 0)
+    return -1;
+
+  if (nice_agent_parse_remote_sdp(ice->agent, buf) <= 0)
     return -1;
 
   return 0;
