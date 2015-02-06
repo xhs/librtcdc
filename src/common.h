@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define BUFFER_SIZE 1500
+#define BUFFER_SIZE (1 << 16)
 
 #define PEER_CLIENT 0
 #define PEER_SERVER 1
