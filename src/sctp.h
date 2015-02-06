@@ -36,6 +36,9 @@ destroy_sctp_transport(struct sctp_transport *sctp);
 gpointer
 sctp_thread(gpointer ice_trans);
 
+gpointer
+sctp_startup_thread(gpointer ice_trans);
+
 #ifdef  __cplusplus
 }
 #endif

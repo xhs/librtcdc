@@ -134,6 +134,9 @@ gpointer
 ice_thread(gpointer user_data)
 {
   struct ice_transport *ice = (struct ice_transport *)user_data;
+  if (ice == NULL || ice->dtls == NULL)
+    return NULL;
+
   struct dtls_transport *dtls = ice->dtls;
 
   while (!ice->exit_thread && !ice->gathering_done)
@@ -146,8 +149,12 @@ ice_thread(gpointer user_data)
   if (ice->exit_thread)
     return NULL;
 
-  // if (dtls->role == PEER_CLIENT)
-  //   SSL_do_handshake(dtls->ssl);
+  // start DTLS
+  if (dtls->role == PEER_CLIENT)
+    SSL_do_handshake(dtls->ssl);
+
+  // need a external thread to start SCTP when DTLS handshake is done
+  //...
 
   char buf[BUFFER_SIZE];
   while (!ice->exit_thread) {

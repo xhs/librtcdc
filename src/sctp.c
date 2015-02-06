@@ -121,6 +121,9 @@ create_sctp_transport(int lport, int rport)
   sconn.sconn_family = AF_CONN;
   sconn.sconn_port = htons(sctp->local_port);
   sconn.sconn_addr = (void *)sctp;
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+  sconn.sconn_len = sizeof *sctp;
+#endif
   usrsctp_bind(s, (struct sockaddr *)&sconn, sizeof sconn);
 
   if (0) {
@@ -206,6 +209,38 @@ sctp_thread(gpointer user_data)
         g_mutex_unlock(&dtls->dtls_mutex);
       }
     }
+  }
+
+  return NULL;
+}
+
+gpointer
+sctp_startup_thread(gpointer user_data)
+{
+  struct ice_transport *ice = (struct ice_transport *)user_data;
+  if (ice == NULL || ice->dtls == NULL || ice->sctp == NULL)
+    return NULL;
+
+  struct dtls_transport *dtls = ice->dtls;
+  struct sctp_transport *sctp = ice->sctp;
+
+  while (!ice->exit_thread && !dtls->handshake_done)
+    g_usleep(10000);
+  if (ice->exit_thread)
+    return NULL;
+
+  if (sctp->role == PEER_CLIENT) {
+    struct sockaddr_conn sconn;
+    memset(&sconn, 0, sizeof sconn);
+    sconn.sconn_family = AF_CONN;
+    sconn.sconn_port = htons(sctp->remote_port);
+    sconn.sconn_addr = (void *)sctp;
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+    sconn.sconn_len = sizeof *sctp;
+#endif
+    usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn);
+  } else {
+    usrsctp_listen(sctp->sock, 1);
   }
 
   return NULL;
