@@ -166,12 +166,6 @@ sctp_thread(gpointer user_data)
   if (ice->exit_thread)
     return NULL;
 
-  // if (sctp->role == PEER_CLIENT) {
-  //   //...
-  // } else {
-  //   usrsctp_listen(sctp->sock, 1);
-  // }
-
   while (!ice->exit_thread && !dtls->handshake_done)
     g_usleep(10000);
   if (ice->exit_thread)
@@ -223,6 +217,11 @@ sctp_startup_thread(gpointer user_data)
 
   struct dtls_transport *dtls = ice->dtls;
   struct sctp_transport *sctp = ice->sctp;
+
+  while (!ice->exit_thread && !ice->negotiation_done)
+    g_usleep(10000);
+  if (ice->exit_thread)
+    return NULL;
 
   while (!ice->exit_thread && !dtls->handshake_done)
     g_usleep(10000);

@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
         break;
       } else if (res > 0) {
         g_free(rsdp);
-        goto done;
+        goto run_forever;
       } else {
         fprintf(stderr, "invalid remote sdp\n");
         printf("enter base64 encoded remote sdp:\n");
@@ -135,8 +135,23 @@ int main(int argc, char *argv[])
     }
   }
 
-done:
-  printf("done\n");
+run_forever:
+  fprintf(stderr, "running");
+
+  GThread *thread_ice = g_thread_new("ICE thread", &ice_thread, ice);
+  GThread *thread_sctp = g_thread_new("SCTP thread", &sctp_thread, ice);
+  GThread *thread_startup = g_thread_new("SCTP startup thread", &sctp_startup_thread, ice);
+
+  g_main_loop_run(ice->loop);
+  ice->exit_thread = TRUE;
+
+  g_thread_join(thread_ice);
+  g_thread_join(thread_sctp);
+  g_thread_join(thread_startup);
+
+  g_thread_unref(thread_ice);
+  g_thread_unref(thread_sctp);
+  g_thread_unref(thread_startup);
 
 clean_up:
   destroy_dtls_context(dtls_ctx);
