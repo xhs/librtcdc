@@ -149,13 +149,13 @@ ice_thread(gpointer user_data)
   if (ice->exit_thread)
     return NULL;
 
-  // start DTLS
-  if (dtls->role == PEER_CLIENT)
+  if (dtls->role == PEER_CLIENT) {
+    // ugly
+    g_usleep(500000);
     SSL_do_handshake(dtls->ssl);
+  }
 
   // need a external thread to start SCTP when DTLS handshake is done
-  //...
-
   char buf[BUFFER_SIZE];
   while (!ice->exit_thread) {
     if (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
