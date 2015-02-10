@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
   }
 
 run_forever:
-  fprintf(stderr, "running");
+  fprintf(stderr, "running\n");
 
   GThread *thread_ice = g_thread_new("ICE thread", &ice_thread, ice);
   GThread *thread_sctp = g_thread_new("SCTP thread", &sctp_thread, ice);

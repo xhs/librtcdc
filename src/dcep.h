@@ -11,6 +11,14 @@ extern "C" {
 
 #include <stdint.h>
 
+#define WEBRTC_CONTROL_PPID        50
+#define WEBRTC_STRING_PPID         51
+#define WEBRTC_BINARY_PARTIAL_PPID 52
+#define WEBRTC_BINARY_PPID         53
+#define WEBRTC_STRING_PARTIAL_PPID 54
+#define WEBRTC_STRING_EMPTY_PPID   56
+#define WEBRTC_BINARY_EMPTY_PPID   57
+
 #define DATA_CHANNEL_OPEN 0x03
 #define DATA_CHANNEL_ACK  0x02
 
@@ -26,7 +34,7 @@ extern "C" {
 #define DATA_CHANNEL_PRIORITY_HIGH         512
 #define DATA_CHANNEL_PRIORITY_EXTRA_HIGH   1024
 
-struct dcep_open_message __attribute__((packed, aligned(1))) {
+struct dcep_open_message {
   uint8_t message_type;
   uint8_t channel_type;
   uint16_t priority;
@@ -34,11 +42,11 @@ struct dcep_open_message __attribute__((packed, aligned(1))) {
   uint16_t label_length;
   uint16_t protocol_length;
   char label_and_protocol[0];
-};
+} __attribute__((packed, aligned(1)));
 
-struct dcep_ack_message __attribute__((packed, aligned(1))) {
+struct dcep_ack_message {
   uint8_t message_type;
-};
+} __attribute__((packed, aligned(1)));
 
 #ifdef  __cplusplus
 }

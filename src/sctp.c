@@ -9,12 +9,18 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include "common.h"
 #include "util.h"
 #include "ice.h"
 #include "dtls.h"
 #include "sctp.h"
+#include "dcep.h"
+
+static int interested_events[] = {
+  //...
+};
 
 static int
 sctp_data_ready_cb(void *reg_addr, void *data, size_t len, uint8_t tos, uint8_t set_df)
@@ -26,13 +32,60 @@ sctp_data_ready_cb(void *reg_addr, void *data, size_t len, uint8_t tos, uint8_t 
   return 0;
 }
 
+static void
+handle_notification_message(struct sctp_transport *sctp, union sctp_notification *notify, size_t len)
+{
+  //...
+}
+
+static void
+handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
+                     uint32_t ppid, uint16_t sid)
+{
+  fprintf(stderr, "ppid = %x, sid = %x\n", ppid, sid);
+
+  switch (ppid) {
+    case WEBRTC_CONTROL_PPID:
+      {
+        uint8_t msg_type = ((uint8_t *)packets)[0];
+        if (msg_type == DATA_CHANNEL_OPEN) {
+          fprintf(stderr, "rtcdc open request\n");
+        } else if (msg_type == DATA_CHANNEL_ACK) {
+          fprintf(stderr, "rtcdc open ack\n");
+        }
+      }
+      break;
+    case WEBRTC_STRING_PPID:
+    case WEBRTC_STRING_PARTIAL_PPID:
+    case WEBRTC_BINARY_PPID:
+    case WEBRTC_BINARY_PARTIAL_PPID:
+      fprintf(stderr, "rtcdc string/binary\n");
+      break;
+    case WEBRTC_STRING_EMPTY_PPID:
+    case WEBRTC_BINARY_EMPTY_PPID:
+      break;
+    default:
+      fprintf(stderr, "unknown ppid\n");
+      break;
+  }
+}
+
 static int
 sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data,
                       size_t len, struct sctp_rcvinfo recv_info, int flags, void *user_data)
 {
   struct sctp_transport *sctp = (struct sctp_transport *)user_data;
-  //...
-  return 0;
+  if (sctp == NULL || len == 0)
+    return 0;
+
+  fprintf(stderr, "sctp data received\n");
+
+  if (flags & MSG_NOTIFICATION)
+    handle_notification_message(sctp, (union sctp_notification *)data, len);
+  else
+    handle_rtcdc_message(sctp, data, len, recv_info.rcv_ppid, recv_info.rcv_sid);
+
+  return 1;
 }
 
 struct sctp_transport *
