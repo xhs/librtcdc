@@ -2,15 +2,6 @@
 // Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
 // This file is licensed under a GNU GPLv3 license.
 
-#include <sys/socket.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include "common.h"
 #include "util.h"
 #include "ice.h"
@@ -42,8 +33,6 @@ static void
 handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
                      uint32_t ppid, uint16_t sid)
 {
-  fprintf(stderr, "ppid = %x, sid = %x\n", ppid, sid);
-
   switch (ppid) {
     case WEBRTC_CONTROL_PPID:
       {
@@ -65,7 +54,6 @@ handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
     case WEBRTC_BINARY_EMPTY_PPID:
       break;
     default:
-      fprintf(stderr, "unknown ppid\n");
       break;
   }
 }
@@ -76,16 +64,26 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
 {
   struct sctp_transport *sctp = (struct sctp_transport *)user_data;
   if (sctp == NULL || len == 0)
-    return 0;
+    return -1;
 
-  fprintf(stderr, "sctp data received\n");
+  uint8_t *p = (uint8_t *)&recv_info;
+  for (int i = 0; i < sizeof recv_info; ++i)
+    fprintf(stderr, "%02x", p[i]);
+  fprintf(stderr, "\n");
+  fprintf(stdout, "Data of length %u received on stream %u with SSN %u, TSN %u, PPID %u\n",
+          (uint32_t)len,
+          recv_info.rcv_sid,
+          recv_info.rcv_ssn,
+          recv_info.rcv_tsn,
+          ntohl(recv_info.rcv_ppid));
 
   if (flags & MSG_NOTIFICATION)
     handle_notification_message(sctp, (union sctp_notification *)data, len);
   else
-    handle_rtcdc_message(sctp, data, len, recv_info.rcv_ppid, recv_info.rcv_sid);
+    handle_rtcdc_message(sctp, data, len, ntohl(recv_info.rcv_ppid), ntohs(recv_info.rcv_sid));
 
-  return 1;
+  free(data);
+  return 0;
 }
 
 struct sctp_transport *
