@@ -66,21 +66,10 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
   if (sctp == NULL || len == 0)
     return -1;
 
-  uint8_t *p = (uint8_t *)&recv_info;
-  for (int i = 0; i < sizeof recv_info; ++i)
-    fprintf(stderr, "%02x", p[i]);
-  fprintf(stderr, "\n");
-  fprintf(stdout, "Data of length %u received on stream %u with SSN %u, TSN %u, PPID %u\n",
-          (uint32_t)len,
-          recv_info.rcv_sid,
-          recv_info.rcv_ssn,
-          recv_info.rcv_tsn,
-          ntohl(recv_info.rcv_ppid));
-
   if (flags & MSG_NOTIFICATION)
     handle_notification_message(sctp, (union sctp_notification *)data, len);
   else
-    handle_rtcdc_message(sctp, data, len, ntohl(recv_info.rcv_ppid), ntohs(recv_info.rcv_sid));
+    handle_rtcdc_message(sctp, data, len, ntohl(recv_info.rcv_ppid), recv_info.rcv_sid);
 
   free(data);
   return 0;
