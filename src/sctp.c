@@ -29,35 +29,6 @@ handle_notification_message(struct sctp_transport *sctp, union sctp_notification
   //...
 }
 
-static void
-handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
-                     uint32_t ppid, uint16_t sid)
-{
-  switch (ppid) {
-    case WEBRTC_CONTROL_PPID:
-      {
-        uint8_t msg_type = ((uint8_t *)packets)[0];
-        if (msg_type == DATA_CHANNEL_OPEN) {
-          fprintf(stderr, "rtcdc open request\n");
-        } else if (msg_type == DATA_CHANNEL_ACK) {
-          fprintf(stderr, "rtcdc open ack\n");
-        }
-      }
-      break;
-    case WEBRTC_STRING_PPID:
-    case WEBRTC_STRING_PARTIAL_PPID:
-    case WEBRTC_BINARY_PPID:
-    case WEBRTC_BINARY_PARTIAL_PPID:
-      fprintf(stderr, "rtcdc string/binary\n");
-      break;
-    case WEBRTC_STRING_EMPTY_PPID:
-    case WEBRTC_BINARY_EMPTY_PPID:
-      break;
-    default:
-      break;
-  }
-}
-
 static int
 sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data,
                       size_t len, struct sctp_rcvinfo recv_info, int flags, void *user_data)

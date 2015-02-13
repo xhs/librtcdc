@@ -48,6 +48,10 @@ struct dcep_ack_message {
   uint8_t message_type;
 } __attribute__((packed, aligned(1)));
 
+void
+handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
+                     uint32_t ppid, uint16_t sid);
+
 #ifdef  __cplusplus
 }
 #endif

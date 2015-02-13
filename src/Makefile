@@ -2,7 +2,7 @@
 # Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
 # This file is licensed under a GNU GPLv3 license.
 
-all: util.o dtls.o sctp.o ice.o sdp.o test.o
+all: util.o dtls.o sctp.o ice.o sdp.o dcep.o test.o
 	gcc -o test *.o `pkg-config --libs openssl nice` -lusrsctp
 
 util.o: util.c util.h
@@ -22,6 +22,9 @@ sdp.o: sdp.c sdp.h common.h util.h
 
 test.o: test.c dtls.h sctp.h ice.h sdp.h
 	gcc -DINET -DINET6 -DDEBUG_SCTP -c test.c `pkg-config --cflags openssl nice`
+
+dcep.o: dcep.c dcep.h common.h sctp.h
+	gcc -DINET -DINET6 -DDEBUG_SCTP -c dcep.c `pkg-config --cflags openssl nice`
 
 clean:
 	rm -f test *.o *.dylib *.so *.a
