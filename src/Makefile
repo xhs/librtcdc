@@ -2,29 +2,33 @@
 # Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
 # This file is licensed under a GNU GPLv3 license.
 
+CC=gcc
+CFLAGS=-c -DINET -DINET6 -DDEBUG_SCTP `pkg-config --cflags openssl nice`
+CLIBS=`pkg-config --libs openssl nice` -lusrsctp
+
 all: util.o dtls.o sctp.o ice.o sdp.o dcep.o test.o
-	gcc -o test *.o `pkg-config --libs openssl nice` -lusrsctp
+	$(CC) -o test *.o $(CLIBS)
 
 util.o: util.c util.h
-	gcc -c util.c
+	$(CC) $(CFLAGS) util.c
 
 dtls.o: dtls.c dtls.h common.h util.h
-	gcc -DINET -DINET6 -Wno-deprecated -c dtls.c `pkg-config --cflags openssl nice`
+	$(CC) $(CFLAGS) -Wno-deprecated dtls.c
 
 sctp.o: sctp.c sctp.h common.h util.h
-	gcc -DINET -DINET6 -Wno-deprecated -DDEBUG_SCTP -c sctp.c `pkg-config --cflags openssl nice`
+	$(CC) $(CFLAGS) -Wno-deprecated sctp.c
 
 ice.o: ice.c ice.h common.h util.h
-	gcc -DINET -DINET6 -Wno-deprecated -DDEBUG_SCTP -c ice.c `pkg-config --cflags openssl nice`
+	$(CC) $(CFLAGS) -Wno-deprecated ice.c
 
 sdp.o: sdp.c sdp.h common.h util.h
-	gcc -DINET -DINET6 -DDEBUG_SCTP -c sdp.c `pkg-config --cflags openssl nice`
+	$(CC) $(CFLAGS) sdp.c
 
 test.o: test.c dtls.h sctp.h ice.h sdp.h
-	gcc -DINET -DINET6 -DDEBUG_SCTP -c test.c `pkg-config --cflags openssl nice`
+	$(CC) $(CFLAGS) test.c
 
 dcep.o: dcep.c dcep.h common.h sctp.h
-	gcc -DINET -DINET6 -DDEBUG_SCTP -c dcep.c `pkg-config --cflags openssl nice`
+	$(CC) $(CFLAGS) dcep.c
 
 clean:
 	rm -f test *.o *.dylib *.so *.a
