@@ -3,33 +3,20 @@
 # This file is licensed under a GNU GPLv3 license.
 
 CC=gcc
-CFLAGS=-c -DINET -DINET6 -DDEBUG_SCTP `pkg-config --cflags openssl nice`
-CLIBS=`pkg-config --libs openssl nice` -lusrsctp
+CFLAGS=-c -DINET -DINET6 -DDEBUG_SCTP -Wno-deprecated `pkg-config --cflags openssl nice`
+LDFLAGS=`pkg-config --libs openssl nice` -lusrsctp
+SOURCES=util.c dtls.c sctp.c ice.c sdp.c dcep.c test.c
+OBJECTS=$(SOURCES:.c=.o)
+EXECUTABLE=test
 
-all: util.o dtls.o sctp.o ice.o sdp.o dcep.o test.o
-	$(CC) -o test *.o $(CLIBS)
+all: $(SOURCES) $(EXECUTABLE)
 
-util.o: util.c util.h
-	$(CC) $(CFLAGS) util.c
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
-dtls.o: dtls.c dtls.h common.h util.h
-	$(CC) $(CFLAGS) -Wno-deprecated dtls.c
-
-sctp.o: sctp.c sctp.h common.h util.h
-	$(CC) $(CFLAGS) -Wno-deprecated sctp.c
-
-ice.o: ice.c ice.h common.h util.h
-	$(CC) $(CFLAGS) -Wno-deprecated ice.c
-
-sdp.o: sdp.c sdp.h common.h util.h
-	$(CC) $(CFLAGS) sdp.c
-
-test.o: test.c dtls.h sctp.h ice.h sdp.h
-	$(CC) $(CFLAGS) test.c
-
-dcep.o: dcep.c dcep.h common.h sctp.h
-	$(CC) $(CFLAGS) dcep.c
+.c.o:
+	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -f test *.o *.dylib *.so *.a
+	rm -f *.o *.so *.dylib *.a test
 
