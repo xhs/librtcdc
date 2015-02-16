@@ -10,6 +10,13 @@
 #include "sctp.h"
 #include "ice.h"
 #include "sdp.h"
+#include "dcep.h"
+
+static void
+on_channel(struct data_channel *ch)
+{
+  fprintf(stderr, "new data channel: %s\n", ch->label);
+}
 
 int main(int argc, char *argv[])
 {
@@ -41,7 +48,7 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  struct sctp_transport *sctp = create_sctp_transport(6000, 0);
+  struct sctp_transport *sctp = create_sctp_transport(6000, 0, on_channel);
   if (sctp == NULL) {
     fprintf(stderr, "SCTP transport error\n");
     destroy_dtls_context(dtls_ctx);

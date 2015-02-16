@@ -47,11 +47,24 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
 }
 
 struct sctp_transport *
-create_sctp_transport(int lport, int rport)
+create_sctp_transport(int lport, int rport,
+                      void (*on_channel)(struct data_channel *ch))
 {
   struct sctp_transport *sctp = (struct sctp_transport *)calloc(1, sizeof *sctp);
   if (sctp == NULL)
     return NULL;
+
+  struct data_channel **channels =
+    (struct data_channel **)calloc(CHANNEL_NUMBER_BASE, sizeof(struct data_channel *));
+  if (channels == NULL) {
+    free(sctp);
+    return NULL;
+  }
+  sctp->channels = channels;
+  sctp->channel_num = CHANNEL_NUMBER_BASE;
+
+  if (on_channel)
+    sctp->on_channel = on_channel;
 
   if (lport > 0)
     sctp->local_port = lport;

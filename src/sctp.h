@@ -13,6 +13,8 @@ extern "C" {
 #include <openssl/bio.h>
 #include <glib.h>
 
+struct data_channel;
+
 struct sctp_transport {
   struct socket *sock;
   BIO *incoming_bio;
@@ -25,10 +27,14 @@ struct sctp_transport {
   int incoming_stub;
   int outgoing_stub;
 #endif
+  struct data_channel **channels;
+  int channel_num;
+  void (*on_channel)(struct data_channel *ch);
 };
 
 struct sctp_transport *
-create_sctp_transport(int lport, int rport);
+create_sctp_transport(int lport, int rport,
+                      void (*)(struct data_channel *ch));
 
 void
 destroy_sctp_transport(struct sctp_transport *sctp);
