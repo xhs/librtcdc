@@ -38,6 +38,10 @@ extern "C" {
 #define DATA_CHANNEL_CONNECTING 1
 #define DATA_CHANNEL_CONNECTED  2
 
+#define DATA_TYPE_STRING 0
+#define DATA_TYPE_BINARY 1
+#define DATA_TYPE_EMPTY  2
+
 struct dcep_open_message {
   uint8_t message_type;
   uint8_t channel_type;
@@ -61,7 +65,7 @@ struct data_channel {
   char *protocol;
   int state;
   uint16_t sid;
-  void (*on_message)(struct data_channel *ch, void *buf, int len);
+  void (*on_message)(struct data_channel *ch, int type, void *packets, size_t len);
 };
 
 void

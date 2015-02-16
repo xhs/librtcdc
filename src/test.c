@@ -13,9 +13,18 @@
 #include "dcep.h"
 
 static void
+on_message(struct data_channel *ch, int type, void *packets, size_t len)
+{
+  fprintf(stderr, "%s of length %zu received from channel %s: %s\n",
+    type == DATA_TYPE_STRING ? "String" : "Binary",
+    len, ch->label, packets);
+}
+
+static void
 on_channel(struct data_channel *ch)
 {
   fprintf(stderr, "new data channel: %s\n", ch->label);
+  ch->on_message = on_message;
 }
 
 int main(int argc, char *argv[])

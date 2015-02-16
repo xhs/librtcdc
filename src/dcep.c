@@ -79,6 +79,23 @@ handle_rtcdc_open_ack(struct sctp_transport *sctp, uint16_t sid)
   }
 }
 
+static void
+handle_rtcdc_data(struct sctp_transport *sctp, uint16_t sid, int type, void *packets, size_t len)
+{
+  for (int i = 0; i < sctp->channel_num; ++i) {
+    struct data_channel *ch = sctp->channels[i];
+    if (ch && ch->sid == sid) {
+      if (ch->state == DATA_CHANNEL_CONNECTING)
+        ch->state = DATA_CHANNEL_CONNECTED;
+
+      if (ch->on_message)
+        ch->on_message(ch, type, packets, len);
+
+      break;
+    }
+  }
+}
+
 void
 handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
                      uint32_t ppid, uint16_t sid)
@@ -95,12 +112,15 @@ handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
       break;
     case WEBRTC_STRING_PPID:
     case WEBRTC_STRING_PARTIAL_PPID:
+      handle_rtcdc_data(sctp, sid, DATA_TYPE_STRING, packets, len);
+      break;
     case WEBRTC_BINARY_PPID:
     case WEBRTC_BINARY_PARTIAL_PPID:
-      fprintf(stderr, "rtcdc string/binary\n");
+      handle_rtcdc_data(sctp, sid, DATA_TYPE_BINARY, packets, len);
       break;
     case WEBRTC_STRING_EMPTY_PPID:
     case WEBRTC_BINARY_EMPTY_PPID:
+      handle_rtcdc_data(sctp, sid, DATA_TYPE_EMPTY, packets, len);
       break;
     default:
       break;
