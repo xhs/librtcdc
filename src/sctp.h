@@ -29,6 +29,7 @@ struct sctp_transport {
 #endif
   struct data_channel **channels;
   int channel_num;
+  int stream_cursor;
   void (*on_channel)(struct data_channel *ch);
 };
 

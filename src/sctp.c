@@ -74,8 +74,11 @@ create_sctp_transport(int lport, int rport,
   if (rport > 0) {
     sctp->role = PEER_CLIENT;
     sctp->remote_port = rport;
-  } else
+    sctp->stream_cursor = 0;
+  } else {
     sctp->role = PEER_SERVER;
+    sctp->stream_cursor = 1;
+  }
 
   usrsctp_init(0, sctp_data_ready_cb, NULL);
   usrsctp_register_address(sctp);
