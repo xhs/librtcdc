@@ -123,8 +123,8 @@ create_sctp_transport(int lport, int rport)
 
   struct sctp_initmsg init_msg;
   memset(&init_msg, 0, sizeof init_msg);
-  init_msg.sinit_num_ostreams = 16;
-  init_msg.sinit_max_instreams = 1024;
+  init_msg.sinit_num_ostreams = MAX_OUT_STREAM;
+  init_msg.sinit_max_instreams = MAX_IN_STREAM;
   usrsctp_setsockopt(s, IPPROTO_SCTP, SCTP_INITMSG, &init_msg, sizeof init_msg);
 
   struct sockaddr_conn sconn;
