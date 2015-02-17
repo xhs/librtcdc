@@ -65,12 +65,16 @@ struct data_channel {
   char *protocol;
   int state;
   uint16_t sid;
-  void (*on_message)(struct data_channel *ch, int type, void *packets, size_t len);
+  void (*on_message)(struct data_channel *ch, int datatype, void *packets, size_t len);
 };
 
 void
 handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
                      uint32_t ppid, uint16_t sid);
+
+struct data_channel *
+create_reliable_data_channel(struct sctp_transport *sctp, const char *label, const char *protocol,
+                             void (*)(struct data_channel *ch, int datatype, void *packets, size_t len));
 
 #ifdef  __cplusplus
 }

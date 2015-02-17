@@ -13,10 +13,10 @@
 #include "dcep.h"
 
 static void
-on_message(struct data_channel *ch, int type, void *packets, size_t len)
+on_message(struct data_channel *ch, int datatype, void *packets, size_t len)
 {
   fprintf(stderr, "%s of length %zu received from channel %s: %s\n",
-    type == DATA_TYPE_STRING ? "String" : "Binary",
+    datatype == DATA_TYPE_STRING ? "String" : "Binary",
     len, ch->label, packets);
 }
 
