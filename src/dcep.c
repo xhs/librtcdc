@@ -39,6 +39,20 @@ handle_rtcdc_open_request(struct sctp_transport *sctp, uint16_t sid, void *packe
   if (len < sizeof *open_req)
     return;
 
+  struct dcep_ack_message ack;
+  ack.message_type = DATA_CHANNEL_ACK;
+
+  struct sctp_sndinfo info;
+  memset(&info, 0, sizeof info);
+  info.snd_sid = sid;
+  info.snd_flags = SCTP_EOR;
+  info.snd_ppid = WEBRTC_CONTROL_PPID;
+
+  if (usrsctp_sendv(sctp->sock, &ack, sizeof ack, NULL, 0, &info, (socklen_t)sizeof(info), SCTP_SENDV_SNDINFO, 0) < 0) {
+    fprintf(stderr, "sending ack failed\n");
+    return;
+  }
+
   int i;
   for (i = 0; i < sctp->channel_num; ++i) {
     if (sctp->channels[i])
@@ -85,7 +99,7 @@ handle_rtcdc_data(struct sctp_transport *sctp, uint16_t sid, int type, void *pac
   for (int i = 0; i < sctp->channel_num; ++i) {
     struct data_channel *ch = sctp->channels[i];
     if (ch && ch->sid == sid) {
-      if (ch->state == DATA_CHANNEL_CONNECTING)
+      if (ch->state == DATA_CHANNEL_CLOSED)
         ch->state = DATA_CHANNEL_CONNECTED;
 
       if (ch->on_message)
@@ -186,6 +200,7 @@ create_reliable_data_channel(struct sctp_transport *sctp, const char *label, con
   memcpy(req->label_and_protocol + strlen(label), protocol, strlen(protocol));
 
   struct sctp_sndinfo info;
+  memset(&info, 0, sizeof info);
   info.snd_sid = ch->sid;
   info.snd_flags = SCTP_EOR;
   info.snd_ppid = WEBRTC_CONTROL_PPID;
