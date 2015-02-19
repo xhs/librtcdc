@@ -273,7 +273,16 @@ sctp_startup_thread(gpointer user_data)
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
     sconn.sconn_len = sizeof *sctp;
 #endif
-    usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn);
+    if (usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn) < 0) {
+#ifdef DEBUG_SCTP
+      fprintf(stderr, "sctp connection failed\n");
+#endif
+    } else {
+#ifdef DEBUG_SCTP
+      fprintf(stderr, "sctp connection connected\n");
+#endif
+      sctp->handshake_done = TRUE;
+    }
   } else {
     struct sockaddr_conn sconn;
     memset(&sconn, 0, sizeof sconn);
@@ -290,6 +299,7 @@ sctp_startup_thread(gpointer user_data)
 #ifdef DEBUG_SCTP
     fprintf(stderr, "sctp connection accepted\n");
 #endif
+      sctp->handshake_done = TRUE;
       struct socket *t = sctp->sock;
       sctp->sock = s;
       usrsctp_close(t);

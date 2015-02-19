@@ -22,6 +22,7 @@ struct sctp_transport {
   int local_port;
   int remote_port;
   int role;
+  gboolean handshake_done;
   GMutex sctp_mutex;
 #ifdef DEBUG_SCTP
   int incoming_stub;

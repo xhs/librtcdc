@@ -49,7 +49,9 @@ handle_rtcdc_open_request(struct sctp_transport *sctp, uint16_t sid, void *packe
 
   if (usrsctp_sendv(sctp->sock, &ack, sizeof ack, NULL, 0,
                     &info, sizeof info, SCTP_SENDV_SNDINFO, 0) < 0) {
-    fprintf(stderr, "sending ack failed\n");
+#ifdef DEBUG_SCTP
+    fprintf(stderr, "sending DCEP ack failed\n");
+#endif
     return;
   }
 
