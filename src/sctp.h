@@ -15,6 +15,13 @@ extern "C" {
 
 struct data_channel;
 
+struct sctp_message {
+  void *data;
+  size_t len;
+  uint16_t sid;
+  uint32_t ppid;
+};
+
 struct sctp_transport {
   struct socket *sock;
   BIO *incoming_bio;
@@ -23,6 +30,7 @@ struct sctp_transport {
   int remote_port;
   int role;
   gboolean handshake_done;
+  GAsyncQueue *deferred_messages;
   GMutex sctp_mutex;
 #ifdef DEBUG_SCTP
   int incoming_stub;
@@ -46,6 +54,10 @@ sctp_thread(gpointer ice_trans);
 
 gpointer
 sctp_startup_thread(gpointer ice_trans);
+
+int
+send_sctp_message(struct sctp_transport *sctp,
+                  void *data, size_t len, uint16_t sid, uint32_t ppid);
 
 #ifdef  __cplusplus
 }

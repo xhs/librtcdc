@@ -16,11 +16,11 @@ extern "C" {
 
 #define SESSION_ID_SIZE 16
 
-#define CHANNEL_NUMBER_BASE 16
+#define CHANNEL_NUMBER_BASE 32
 #define CHANNEL_NUMBER_STEP 16
 
 #define MAX_IN_STREAM  1024
-#define MAX_OUT_STREAM 128
+#define MAX_OUT_STREAM 256
 
 #ifdef  __cplusplus
 }
