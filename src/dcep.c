@@ -45,11 +45,10 @@ handle_rtcdc_open_request(struct sctp_transport *sctp, uint16_t sid, void *packe
   struct sctp_sndinfo info;
   memset(&info, 0, sizeof info);
   info.snd_sid = sid;
-  info.snd_flags = SCTP_EOR;
   info.snd_ppid = WEBRTC_CONTROL_PPID;
 
   if (usrsctp_sendv(sctp->sock, &ack, sizeof ack, NULL, 0,
-                    &info, (socklen_t)sizeof(info), SCTP_SENDV_SNDINFO, 0) < 0) {
+                    &info, sizeof info, SCTP_SENDV_SNDINFO, 0) < 0) {
     fprintf(stderr, "sending ack failed\n");
     return;
   }

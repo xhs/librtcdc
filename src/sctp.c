@@ -37,6 +37,15 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
   if (sctp == NULL || len == 0)
     return -1;
 
+#ifdef DEBUG_SCTP
+  printf("data of length %zu received on stream %u with SSN %u, TSN %u, PPID %u\n",
+         len,
+         recv_info.rcv_sid,
+         recv_info.rcv_ssn,
+         recv_info.rcv_tsn,
+         ntohl(recv_info.rcv_ppid));
+#endif
+
   if (flags & MSG_NOTIFICATION)
     handle_notification_message(sctp, (union sctp_notification *)data, len);
   else
@@ -266,7 +275,29 @@ sctp_startup_thread(gpointer user_data)
 #endif
     usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn);
   } else {
+    struct sockaddr_conn sconn;
+    memset(&sconn, 0, sizeof sconn);
+    sconn.sconn_family = AF_CONN;
+    sconn.sconn_port = htons(sctp->local_port);
+    sconn.sconn_addr = (void *)sctp;
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+    sconn.sconn_len = sizeof *sctp;
+#endif
     usrsctp_listen(sctp->sock, 1);
+    socklen_t len = sizeof sconn;
+    struct socket *s = usrsctp_accept(sctp->sock, (struct sockaddr *)&sconn, &len);
+    if (s) {
+#ifdef DEBUG_SCTP
+    fprintf(stderr, "sctp connection accepted\n");
+#endif
+      struct socket *t = sctp->sock;
+      sctp->sock = s;
+      usrsctp_close(t);
+    } else {
+#ifdef DEBUG_SCTP
+    fprintf(stderr, "sctp connection failed\n");
+#endif
+    }
   }
 
   return NULL;
