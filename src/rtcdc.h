@@ -26,6 +26,7 @@ struct rtcdc_data_channel {
   uint16_t sid;
   void (*on_message)(struct rtcdc_data_channel *channel,
                      int datatype, void *data, size_t len);
+  void *user_data;
 };
 
 struct rtcdc_peer_connection {
@@ -53,9 +54,11 @@ int
 rtcdc_parse_remote_candidate(struct rtcdc_peer_connection *peer, const char *candidate);
 
 struct rtcdc_data_channel *
-rtcdc_create_reliable_data_channel(const char *label, const char *protocol,
+rtcdc_create_reliable_data_channel(struct rtcdc_peer_connection *peer,
+                                   const char *label, const char *protocol,
                                    void (*on_message)(struct rtcdc_data_channel *channel,
-                                                      int datatype, void *data, size_t len));
+                                                      int datatype, void *data, size_t len),
+                                   void *user_data);
 
 void
 rtcdc_destroy_data_channel(struct rtcdc_data_channel *channel);
