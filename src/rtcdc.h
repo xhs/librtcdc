@@ -25,7 +25,7 @@ struct rtcdc_data_channel {
   int state;
   uint16_t sid;
   void (*on_message)(struct rtcdc_data_channel *channel,
-                     int datatype, void *data, size_t len);
+                     int datatype, void *data, size_t len, void *user_data);
   void *user_data;
 };
 
@@ -57,7 +57,7 @@ struct rtcdc_data_channel *
 rtcdc_create_reliable_data_channel(struct rtcdc_peer_connection *peer,
                                    const char *label, const char *protocol,
                                    void (*on_message)(struct rtcdc_data_channel *channel,
-                                                      int datatype, void *data, size_t len),
+                                                      int datatype, void *data, size_t len, void *user_data),
                                    void *user_data);
 
 void
