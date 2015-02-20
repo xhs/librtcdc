@@ -41,6 +41,9 @@ rtcdc_create_peer_connection(void (*on_channel)(struct rtcdc_data_channel *chann
 void
 rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer);
 
+void
+rtcdc_loop(struct rtcdc_peer_connection *peer);
+
 char *
 rtcdc_create_offer_sdp(struct rtcdc_peer_connection *peer);
 
