@@ -22,7 +22,7 @@ int
 parse_remote_sdp(struct ice_transport *ice, const char *rsdp);
 
 int
-parse_remote_candidate_sdp(struct ice_transport *ice, const char *rcand_sdp);
+parse_remote_candidate_sdp(struct ice_transport *ice, const char *candidates);
 
 #ifdef  __cplusplus
 }

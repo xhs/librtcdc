@@ -87,49 +87,33 @@ parse_remote_sdp(struct ice_transport *ice, const char *rsdp)
 {
   if (ice == NULL || ice->agent == NULL || rsdp == NULL)
     return -1;
-
-  gchar **lines;
-  if (g_strstr_len("\r\n", strlen(rsdp), rsdp) == NULL)
-    lines = g_strsplit(rsdp, "\n", 0);
-  else
-    lines = g_strsplit(rsdp, "\r\n", 0);
-
-  char buf[BUFFER_SIZE];
-  memset(buf, 0, sizeof buf);
-  int pos = 0;
-  for (int i = 0; lines && lines[i]; ++i) {
-    if (g_str_has_prefix(lines[i], "m=application")) {
-      gchar **columns = g_strsplit(lines[i], " ", 0);
-      if (columns[0] && columns[1] && columns[2] && columns[3])
-        ice->sctp->remote_port = atoi(columns[3]);
-      g_strfreev(columns);
-    }
-    pos += sprintf(buf + pos, "%s\n", lines[i]);
-  }
-  g_strfreev(lines);
-
-  if (ice->sctp->remote_port <= 0)
-    return -1;
-
-  return nice_agent_parse_remote_sdp(ice->agent, buf);
+  
+  return nice_agent_parse_remote_sdp(ice->agent, rsdp);
 }
 
 int
-parse_remote_candidate_sdp(struct ice_transport *ice, const char *rcand_sdp)
+parse_remote_candidate_sdp(struct ice_transport *ice, const char *candidates)
 {
-  if (ice == NULL || ice->agent == NULL || rcand_sdp == NULL)
+  if (ice == NULL || ice->agent == NULL || candidates == NULL)
     return -1;
 
-  NiceCandidate *rcand = nice_agent_parse_remote_candidate_sdp(ice->agent, ice->stream_id, rcand_sdp);
-  if (rcand == NULL)
-    return -1;
+  char **lines;
+  if (g_strstr_len("\r\n", strlen(candidates), candidates) == NULL)
+    lines = g_strsplit(candidates, "\n", 0);
+  else
+    lines = g_strsplit(candidates, "\r\n", 0);
 
   GSList *list = NULL;
-  list = g_slist_append(list, rcand);
-  int ret = nice_agent_set_remote_candidates(ice->agent, ice->stream_id, 1, list);
+  for (int i = 0; lines && lines[i]; ++i) {
+    NiceCandidate *rcand = nice_agent_parse_remote_candidate_sdp(ice->agent, ice->stream_id, lines[i]);
+    if (rcand == NULL)
+      continue;
+    list = g_slist_append(list, rcand);
+  }
+  g_strfreev(lines);
 
-  nice_candidate_free(rcand);
-  g_slist_free(list);
+  int ret = nice_agent_set_remote_candidates(ice->agent, ice->stream_id, g_slist_length(list), list);
+  g_slist_free_full(list, (GDestroyNotify)&nice_candidate_free);
 
   return ret;
 }
