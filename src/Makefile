@@ -5,7 +5,7 @@
 CC=gcc
 CFLAGS=-c -DINET -DINET6 -DDEBUG_SCTP -Wno-deprecated `pkg-config --cflags openssl nice`
 LDFLAGS=`pkg-config --libs openssl nice` -lusrsctp -lpthread
-SOURCES=util.c dtls.c sctp.c ice.c sdp.c dcep.c test.c
+SOURCES=util.c dtls.c sctp.c ice.c sdp.c dcep.c rtcdc.c example.c
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=test
 
