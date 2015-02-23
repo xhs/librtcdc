@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "common.h"
+#include "dtls.h"
 #include "sctp.h"
 #include "ice.h"
 
@@ -123,6 +124,11 @@ destroy_ice_transport(struct ice_transport *ice)
 {
   if (ice == NULL)
     return;
+
+  if (ice->dtls)
+    destroy_dtls_transport(ice->dtls);
+  if (ice->sctp)
+    destroy_sctp_transport(ice->sctp);
 
   g_object_unref(ice->agent);
   g_main_loop_unref(ice->loop);
