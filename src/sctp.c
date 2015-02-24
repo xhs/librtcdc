@@ -8,6 +8,7 @@
 #include "dtls.h"
 #include "sctp.h"
 #include "dcep.h"
+#include "rtcdc.h"
 
 static int interested_events[] = {
   //...
@@ -24,7 +25,7 @@ sctp_data_ready_cb(void *reg_addr, void *data, size_t len, uint8_t tos, uint8_t 
 }
 
 static void
-handle_notification_message(struct sctp_transport *sctp, union sctp_notification *notify, size_t len)
+handle_notification_message(struct rtcdc_peer_connection *peer, union sctp_notification *notify, size_t len)
 {
   //...
 }
@@ -33,9 +34,12 @@ static int
 sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data,
                       size_t len, struct sctp_rcvinfo recv_info, int flags, void *user_data)
 {
-  struct sctp_transport *sctp = (struct sctp_transport *)user_data;
-  if (sctp == NULL || len == 0)
+  if (user_data == NULL || len == 0)
     return -1;
+
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct sctp_transport *sctp = transport->sctp;
 
 #ifdef DEBUG_SCTP
   printf("data of length %zu received on stream %u with SSN %u, TSN %u, PPID %u\n",
@@ -47,33 +51,23 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
 #endif
 
   if (flags & MSG_NOTIFICATION)
-    handle_notification_message(sctp, (union sctp_notification *)data, len);
+    handle_notification_message(peer, (union sctp_notification *)data, len);
   else
-    handle_rtcdc_message(sctp, data, len, ntohl(recv_info.rcv_ppid), recv_info.rcv_sid);
+    handle_rtcdc_message(peer, data, len, ntohl(recv_info.rcv_ppid), recv_info.rcv_sid);
 
   free(data);
   return 0;
 }
 
 struct sctp_transport *
-create_sctp_transport(int lport, int rport,
-                      void (*on_channel)(struct data_channel *ch))
+create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
 {
+  if (peer == NULL)
+    return NULL;
+
   struct sctp_transport *sctp = (struct sctp_transport *)calloc(1, sizeof *sctp);
   if (sctp == NULL)
     return NULL;
-
-  struct data_channel **channels =
-    (struct data_channel **)calloc(CHANNEL_NUMBER_BASE, sizeof(struct data_channel *));
-  if (channels == NULL) {
-    free(sctp);
-    return NULL;
-  }
-  sctp->channels = channels;
-  sctp->channel_num = CHANNEL_NUMBER_BASE;
-
-  if (on_channel)
-    sctp->on_channel = on_channel;
 
   if (lport > 0)
     sctp->local_port = lport;
@@ -81,19 +75,16 @@ create_sctp_transport(int lport, int rport,
     sctp->local_port = random_integer(10000, 60000);
 
   if (rport > 0) {
-    sctp->role = PEER_CLIENT;
     sctp->remote_port = rport;
     sctp->stream_cursor = 0;
-  } else {
-    sctp->role = PEER_SERVER;
+  } else
     sctp->stream_cursor = 1;
-  }
 
   usrsctp_init(0, sctp_data_ready_cb, NULL);
   usrsctp_register_address(sctp);
   usrsctp_sysctl_set_sctp_ecn_enable(0);
   struct socket *s = usrsctp_socket(AF_CONN, SOCK_STREAM, IPPROTO_SCTP,
-                                    sctp_data_received_cb, NULL, 0, sctp);
+                                    sctp_data_received_cb, NULL, 0, peer);
   if (s == NULL)
     goto trans_err;
   sctp->sock = s;
@@ -196,9 +187,11 @@ destroy_sctp_transport(struct sctp_transport *sctp)
 gpointer
 sctp_thread(gpointer user_data)
 {
-  struct ice_transport *ice = (struct ice_transport *)user_data;
-  struct dtls_transport *dtls = ice->dtls;
-  struct sctp_transport *sctp = ice->sctp;
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct ice_transport *ice = transport->ice;
+  struct dtls_transport *dtls = transport->dtls;
+  struct sctp_transport *sctp = transport->sctp;
 
   while (!ice->exit_thread && !ice->negotiation_done)
     g_usleep(10000);
@@ -250,12 +243,11 @@ sctp_thread(gpointer user_data)
 gpointer
 sctp_startup_thread(gpointer user_data)
 {
-  struct ice_transport *ice = (struct ice_transport *)user_data;
-  if (ice == NULL || ice->dtls == NULL || ice->sctp == NULL)
-    return NULL;
-
-  struct dtls_transport *dtls = ice->dtls;
-  struct sctp_transport *sctp = ice->sctp;
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct ice_transport *ice = transport->ice;
+  struct dtls_transport *dtls = transport->dtls;
+  struct sctp_transport *sctp = transport->sctp;
 
   while (!ice->exit_thread && !ice->negotiation_done)
     g_usleep(10000);
@@ -267,7 +259,7 @@ sctp_startup_thread(gpointer user_data)
   if (ice->exit_thread)
     return NULL;
 
-  if (sctp->role == PEER_CLIENT) {
+  if (transport->role == RTCDC_ROLE_CLIENT) {
     struct sockaddr_conn sconn;
     memset(&sconn, 0, sizeof sconn);
     sconn.sconn_family = AF_CONN;

@@ -9,15 +9,99 @@
 #include "ice.h"
 #include "dtls.h"
 #include "sctp.h"
+#include "sdp.h"
+#include "dcep.h"
 #include "rtcdc.h"
+#include "common.h"
 
-struct rtcdc_transport {
-  struct dtls_context *ctx;
-  struct ice_transport *ice;
-};
+static struct dtls_context *g_dtls_context = NULL;
+static int g_context_ref = 0;
+
+static struct rtcdc_transport *
+create_rtcdc_transport(struct rtcdc_peer_connection *peer, int remote_port)
+{
+  if (peer == NULL)
+    return NULL;
+
+  struct rtcdc_transport *transport =
+    (struct rtcdc_transport *)calloc(1, sizeof *transport);
+  if (transport == NULL)
+    return NULL;
+
+  if (remote_port > 0)
+    transport->role = RTCDC_ROLE_CLIENT;
+  else
+    transport->role = RTCDC_ROLE_SERVER;
+
+  if (g_dtls_context == NULL) {
+    g_dtls_context = create_dtls_context("./test.crt", "./test.key");
+    if (g_dtls_context == NULL)
+      goto ctx_null_err;
+  }
+  transport->ctx = g_dtls_context;
+  g_context_ref++;
+
+  int client = transport->role == RTCDC_ROLE_CLIENT ? 1 : 0;
+  struct dtls_transport *dtls = create_dtls_transport(transport->ctx, client);
+  if (dtls == NULL)
+    goto dtls_null_err;
+  transport->dtls = dtls;
+
+  struct sctp_transport *sctp = create_sctp_transport(peer, 0, remote_port);
+  if (sctp == NULL)
+    goto sctp_null_err;
+  transport->sctp = sctp;
+
+  int controlling = transport->role == RTCDC_ROLE_CLIENT ? 1 : 0;
+  struct ice_transport *ice = create_ice_transport(peer, controlling);
+  if (ice == NULL)
+    goto ice_null_err;
+  transport->ice = ice;
+
+  if (0) {
+ice_null_err:
+    destroy_sctp_transport(sctp);
+sctp_null_err:
+    destroy_dtls_transport(dtls);
+dtls_null_err:
+    if (--g_context_ref <= 0) {
+      destroy_dtls_context(g_dtls_context);
+      g_dtls_context = NULL;
+      g_context_ref = 0;
+    }
+ctx_null_err:
+    free(transport);
+    transport = NULL;
+  }
+
+  return transport;
+}
+
+static void
+destroy_rtcdc_transport(struct rtcdc_transport *transport)
+{
+  if (transport == NULL)
+    return;
+
+  if (transport->ice)
+    destroy_ice_transport(transport->ice);
+  if (transport->dtls)
+    destroy_dtls_transport(transport->dtls);
+  if (transport->sctp)
+    destroy_sctp_transport(transport->sctp);
+
+  if (--g_context_ref <= 0) {
+    destroy_dtls_context(g_dtls_context);
+    g_dtls_context = NULL;
+    g_context_ref = 0;
+  }
+
+  free(transport);
+  transport = NULL;
+}
 
 struct rtcdc_peer_connection *
-rtcdc_create_peer_connection(void (*on_channel)(struct rtcdc_data_channel *channel))
+rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel)
 {
   struct rtcdc_peer_connection *peer =
     (struct rtcdc_peer_connection *)calloc(1, sizeof *peer);
@@ -25,26 +109,164 @@ rtcdc_create_peer_connection(void (*on_channel)(struct rtcdc_data_channel *chann
     return NULL;
   peer->on_channel = on_channel;
 
-  struct rtcdc_transport *transport = 
-    (struct rtcdc_transport *)calloc(1, sizeof *transport);
-  if (transport == NULL)
-    goto trans_null_err;
-  peer->transport = transport;
+  return peer;
+}
 
-  struct dtls_context *ctx = create_dtls_context("./test.crt", "./test.key");
-  if (ctx == NULL)
-    goto ctx_null_err;
-  transport->ctx = ctx;
+void
+rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer)
+{
+  if (peer == NULL)
+    return;
 
-  //...
+  if (peer->channels) {
+    for (int i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
+      // todo: clean up channels here...
+    }
+    free(peer->channels);
+  }
+  if (peer->transport)
+    destroy_rtcdc_transport(peer->transport);
 
-  if (0) {
-ctx_null_err:
-    free(transport);
-trans_null_err:
-    free(peer);
-    peer = NULL;
+  free(peer);
+}
+
+char *
+rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer)
+{
+  if (peer == NULL)
+    return NULL;
+  
+  struct rtcdc_transport *transport = peer->transport;
+  if (transport == NULL) {
+    transport = create_rtcdc_transport(peer, 0);
+    if (transport == NULL)
+      return NULL;
+    peer->transport = transport;
   }
 
-  return peer;
+  int client = transport->role == RTCDC_ROLE_CLIENT ? 1 : 0;
+  return generate_local_sdp(transport, client);
+}
+
+int
+rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
+{
+  if (peer == NULL || offer == NULL)
+    return -1;
+
+  char **lines;
+  if (g_strstr_len("\r\n", strlen(offer), offer) == NULL)
+    lines = g_strsplit(offer, "\n", 0);
+  else
+    lines = g_strsplit(offer, "\r\n", 0);
+
+  char buf[BUFFER_SIZE];
+  memset(buf, 0, sizeof buf);
+  int pos = 0;
+  int remote_port = 0;
+  for (int i = 0; lines && lines[i]; ++i) {
+    if (g_str_has_prefix(lines[i], "m=application")) {
+      char **columns = g_strsplit(lines[i], " ", 0);
+      if (columns[0] && columns[1] && columns[2] && columns[3])
+        remote_port = atoi(columns[3]);
+      g_strfreev(columns);
+    }
+    pos += sprintf(buf + pos, "%s\n", lines[i]);
+  }
+  g_strfreev(lines);
+
+  if (remote_port < 0)
+    return -1;
+
+  struct rtcdc_transport *transport = peer->transport;
+  if (transport == NULL) {
+    transport = create_rtcdc_transport(peer, remote_port);
+    if (transport == NULL)
+      return -1;
+    peer->transport = transport;
+  }
+
+  return parse_remote_sdp(transport->ice, buf);
+}
+
+char *
+rtcdc_generate_candidate_sdp(struct rtcdc_peer_connection *peer)
+{
+  if (peer == NULL || peer->transport == NULL)
+    return NULL;
+
+  return generate_local_candidate_sdp(peer->transport->ice);
+}
+
+int
+rtcdc_parse_candidate_sdp(struct rtcdc_peer_connection *peer, const char *candidates)
+{
+  if (peer == NULL || peer->transport == NULL)
+    return -1;
+
+  return parse_remote_candidate_sdp(peer->transport->ice, candidates);
+}
+
+struct rtcdc_data_channel *
+rtcdc_create_reliable_ordered_channel(struct rtcdc_peer_connection *peer,
+                                      const char *label, const char *protocol,
+                                      rtcdc_on_message_cb on_message, void *user_data)
+{
+  if (peer == NULL || peer->transport == NULL || peer->channels == NULL)
+    return NULL;
+
+  struct rtcdc_transport *transport = peer->transport;
+  struct sctp_transport *sctp = transport->sctp;
+
+  int i;
+  for (i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
+    if (peer->channels[i])
+      continue;
+    break;
+  }
+
+  if (i == RTCDC_MAX_CHANNEL_NUM)
+    return NULL;
+
+  struct rtcdc_data_channel *ch = (struct rtcdc_data_channel *)calloc(1, sizeof *ch);
+  if (ch == NULL)
+    return NULL;
+  ch->on_message = on_message;
+  ch->user_data = user_data;
+
+  struct dcep_open_message *req;
+  int rlen = sizeof *req + strlen(label) + strlen(protocol);
+  req = (struct dcep_open_message *)calloc(1, rlen);
+  if (req == NULL)
+    goto open_channel_err;
+
+  ch->type = DATA_CHANNEL_RELIABLE;
+  ch->state = DATA_CHANNEL_CONNECTING;
+  ch->label = strdup(label);
+  ch->protocol = strdup(protocol);
+  ch->sid = sctp->stream_cursor;
+  sctp->stream_cursor += 2;
+
+  req->message_type = DATA_CHANNEL_OPEN;
+  req->channel_type = ch->type;
+  req->priority = htons(0);
+  req->reliability_param = htonl(0);
+  req->label_length = htons(strlen(label));
+  req->protocol_length = htons(strlen(protocol));
+  memcpy(req->label_and_protocol, label, strlen(label));
+  memcpy(req->label_and_protocol + strlen(label), protocol, strlen(protocol));
+
+  int ret = send_sctp_message(sctp, req, rlen, ch->sid, WEBRTC_CONTROL_PPID);
+  free(req);
+  if (ret < 0)
+    goto open_channel_err;
+
+  if (0) {
+open_channel_err:
+    free(ch);
+    ch = NULL;
+  }
+
+  peer->channels[i] = ch;
+  return ch;
 }

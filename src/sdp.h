@@ -9,11 +9,11 @@
 extern "C" {
 #endif
 
-#include "dtls.h"
-#include "ice.h"
+struct rtcdc_transport;
+struct ice_transport;
 
 char *
-generate_local_sdp(struct ice_transport *ice, struct dtls_context *ctx, int client);
+generate_local_sdp(struct rtcdc_transport *transport, int client);
 
 char *
 generate_local_candidate_sdp(struct ice_transport *ice);

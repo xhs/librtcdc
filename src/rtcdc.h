@@ -13,13 +13,18 @@ extern "C" {
 #define RTCDC_MAX_CHANNEL_NUM 32
 #endif
 
-struct rtcdc_transport;
+#define RTCDC_ROLE_UNKNOWN 0
+#define RTCDC_ROLE_CLIENT  1
+#define RTCDC_ROLE_SERVER  2
+
+struct dtls_transport;
+struct sctp_transport;
 struct rtcdc_data_channel;
 
-typedef void (*on_message_func)(struct rtcdc_data_channel *channel,
-                                int datatype, void *data, size_t len, void *user_data);
+typedef void (*rtcdc_on_message_cb)(struct rtcdc_data_channel *channel,
+                                    int datatype, void *data, size_t len, void *user_data);
 
-typedef void (*on_channel_func)(struct rtcdc_data_channel *channel);
+typedef void (*rtcdc_on_channel_cb)(struct rtcdc_data_channel *channel);
 
 struct rtcdc_data_channel {
   uint8_t type;
@@ -30,24 +35,32 @@ struct rtcdc_data_channel {
   char *protocol;
   int state;
   uint16_t sid;
-  on_message_func on_message;
+  rtcdc_on_message_cb on_message;
   void *user_data;
+};
+
+struct rtcdc_transport {
+  int role;
+  struct dtls_context *ctx;
+  struct ice_transport *ice;
+  struct dtls_transport *dtls;
+  struct sctp_transport *sctp;
 };
 
 struct rtcdc_peer_connection {
   struct rtcdc_transport *transport;
   struct rtcdc_data_channel *channels[RTCDC_MAX_CHANNEL_NUM];
-  on_channel_func on_channel;
+  rtcdc_on_channel_cb on_channel;
 };
 
 struct rtcdc_peer_connection *
-rtcdc_create_peer_connection(on_channel_func);
+rtcdc_create_peer_connection(rtcdc_on_channel_cb);
 
 void
 rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer);
 
 char *
-rtcdc_create_offer_sdp(struct rtcdc_peer_connection *peer);
+rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer);
 
 int
 rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer);
@@ -59,9 +72,9 @@ int
 rtcdc_parse_candidate_sdp(struct rtcdc_peer_connection *peer, const char *candidates);
 
 struct rtcdc_data_channel *
-rtcdc_create_reliable_data_channel(struct rtcdc_peer_connection *peer,
-                                   const char *label, const char *protocol,
-                                   on_message_func, void *user_data);
+rtcdc_create_reliable_ordered_channel(struct rtcdc_peer_connection *peer,
+                                      const char *label, const char *protocol,
+                                      rtcdc_on_message_cb, void *user_data);
 
 void
 rtcdc_destroy_data_channel(struct rtcdc_data_channel *channel);

@@ -13,7 +13,7 @@ extern "C" {
 #include <openssl/bio.h>
 #include <glib.h>
 
-struct data_channel;
+struct rtcdc_peer_connection;
 
 struct sctp_message {
   void *data;
@@ -28,7 +28,6 @@ struct sctp_transport {
   BIO *outgoing_bio;
   int local_port;
   int remote_port;
-  int role;
   gboolean handshake_done;
   GAsyncQueue *deferred_messages;
   GMutex sctp_mutex;
@@ -36,28 +35,25 @@ struct sctp_transport {
   int incoming_stub;
   int outgoing_stub;
 #endif
-  struct data_channel **channels;
-  int channel_num;
   int stream_cursor;
-  void (*on_channel)(struct data_channel *ch);
+  void *user_data;
 };
 
 struct sctp_transport *
-create_sctp_transport(int lport, int rport,
-                      void (*)(struct data_channel *ch));
+create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport);
 
 void
 destroy_sctp_transport(struct sctp_transport *sctp);
 
-gpointer
-sctp_thread(gpointer ice_trans);
-
-gpointer
-sctp_startup_thread(gpointer ice_trans);
-
 int
 send_sctp_message(struct sctp_transport *sctp,
                   void *data, size_t len, uint16_t sid, uint32_t ppid);
+
+gpointer
+sctp_thread(gpointer peer);
+
+gpointer
+sctp_startup_thread(gpointer peer);
 
 #ifdef  __cplusplus
 }

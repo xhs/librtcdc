@@ -6,14 +6,18 @@
 #include <string.h>
 #include <stdlib.h>
 #include "common.h"
+#include "util.h"
 #include "dtls.h"
 #include "sctp.h"
 #include "ice.h"
+#include "rtcdc.h"
 
 static void
 candidate_gathering_done_cb(NiceAgent *agent, guint stream_id, gpointer user_data)
 {
-  struct ice_transport *ice = (struct ice_transport *)user_data;
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct ice_transport *ice = transport->ice;
   ice->gathering_done = TRUE;
 }
 
@@ -21,7 +25,9 @@ static void
 component_state_changed_cb(NiceAgent *agent, guint stream_id, 
   guint component_id, guint state, gpointer user_data)
 {
-  struct ice_transport *ice = (struct ice_transport *)user_data;
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct ice_transport *ice = transport->ice;
   if (state == NICE_COMPONENT_STATE_READY) {
     ice->negotiation_done = TRUE;
   } else if (state == NICE_COMPONENT_STATE_FAILED) {
@@ -34,12 +40,13 @@ static void
 data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
   guint len, gchar *buf, gpointer user_data)
 {
-  struct ice_transport *ice = (struct ice_transport *)user_data;
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct ice_transport *ice = transport->ice;
+  struct dtls_transport *dtls = transport->dtls;
+  struct sctp_transport *sctp = transport->sctp;
   if (!ice->negotiation_done)
     return;
-
-  struct dtls_transport *dtls = ice->dtls;
-  struct sctp_transport *sctp = ice->sctp;
 
   g_mutex_lock(&dtls->dtls_mutex);
   BIO_write(dtls->incoming_bio, buf, len);
@@ -64,16 +71,14 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
 }
 
 struct ice_transport *
-create_ice_transport(struct dtls_transport *dtls, struct sctp_transport *sctp, int controlling)
+create_ice_transport(struct rtcdc_peer_connection *peer, int controlling)
 {
-  if (dtls == NULL || sctp == NULL)
+  if (peer == NULL)
     return NULL;
 
   struct ice_transport *ice = (struct ice_transport *)calloc(1, sizeof *ice);
   if (ice == NULL)
     return NULL;
-  ice->dtls = dtls;
-  ice->sctp = sctp;
 
   GMainLoop *loop = g_main_loop_new(NULL, FALSE);
   if (loop == NULL) {
@@ -91,9 +96,9 @@ create_ice_transport(struct dtls_transport *dtls, struct sctp_transport *sctp, i
   g_object_set(G_OBJECT(agent), "controlling-mode", controlling, NULL);
 
   g_signal_connect(G_OBJECT(agent), "candidate-gathering-done",
-    G_CALLBACK(candidate_gathering_done_cb), ice);
+    G_CALLBACK(candidate_gathering_done_cb), peer);
   g_signal_connect(G_OBJECT(agent), "component-state-changed",
-    G_CALLBACK(component_state_changed_cb), ice);
+    G_CALLBACK(component_state_changed_cb), peer);
 
   guint stream_id = nice_agent_add_stream(agent, 1);
   if (stream_id == 0)
@@ -103,7 +108,7 @@ create_ice_transport(struct dtls_transport *dtls, struct sctp_transport *sctp, i
   nice_agent_set_stream_name(agent, stream_id, "application");
 
   nice_agent_attach_recv(agent, stream_id, 1,
-    g_main_loop_get_context(loop), data_received_cb, ice);
+    g_main_loop_get_context(loop), data_received_cb, peer);
 
   if (!nice_agent_gather_candidates(agent, stream_id))
     goto trans_err;
@@ -125,11 +130,6 @@ destroy_ice_transport(struct ice_transport *ice)
   if (ice == NULL)
     return;
 
-  if (ice->dtls)
-    destroy_dtls_transport(ice->dtls);
-  if (ice->sctp)
-    destroy_sctp_transport(ice->sctp);
-
   g_object_unref(ice->agent);
   g_main_loop_unref(ice->loop);
   free(ice);
@@ -139,11 +139,10 @@ destroy_ice_transport(struct ice_transport *ice)
 gpointer
 ice_thread(gpointer user_data)
 {
-  struct ice_transport *ice = (struct ice_transport *)user_data;
-  if (ice == NULL || ice->dtls == NULL)
-    return NULL;
-
-  struct dtls_transport *dtls = ice->dtls;
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct ice_transport *ice = transport->ice;
+  struct dtls_transport *dtls = transport->dtls;
 
   while (!ice->exit_thread && !ice->gathering_done)
     g_usleep(10000);

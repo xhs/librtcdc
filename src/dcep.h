@@ -42,6 +42,8 @@ extern "C" {
 #define DATA_TYPE_BINARY 1
 #define DATA_TYPE_EMPTY  2
 
+struct rtcdc_peer_connection;
+
 struct dcep_open_message {
   uint8_t message_type;
   uint8_t channel_type;
@@ -56,25 +58,9 @@ struct dcep_ack_message {
   uint8_t message_type;
 } __attribute__((packed, aligned(1)));
 
-struct data_channel {
-  uint8_t type;
-  uint16_t priority;
-  uint32_t rtx;
-  uint32_t lifetime;
-  char *label;
-  char *protocol;
-  int state;
-  uint16_t sid;
-  void (*on_message)(struct data_channel *ch, int datatype, void *packets, size_t len);
-};
-
 void
-handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
+handle_rtcdc_message(struct rtcdc_peer_connection *peer, void *packets, size_t len,
                      uint32_t ppid, uint16_t sid);
-
-struct data_channel *
-create_reliable_data_channel(struct sctp_transport *sctp, const char *label, const char *protocol,
-                             void (*)(struct data_channel *ch, int datatype, void *packets, size_t len));
 
 #ifdef  __cplusplus
 }

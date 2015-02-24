@@ -8,11 +8,12 @@
 #include "common.h"
 #include "sctp.h"
 #include "dcep.h"
+#include "rtcdc.h"
 
-static struct data_channel *
+static struct rtcdc_data_channel *
 new_data_channel(struct dcep_open_message *open_req, uint16_t sid)
 {
-  struct data_channel *ch = (struct data_channel *)calloc(1, sizeof *ch);
+  struct rtcdc_data_channel *ch = (struct rtcdc_data_channel *)calloc(1, sizeof *ch);
   if (ch == NULL)
     return NULL;
 
@@ -33,43 +34,34 @@ new_data_channel(struct dcep_open_message *open_req, uint16_t sid)
 }
 
 static void
-handle_rtcdc_open_request(struct sctp_transport *sctp, uint16_t sid, void *packets, size_t len)
+handle_rtcdc_open_request(struct rtcdc_peer_connection *peer, uint16_t sid, void *packets, size_t len)
 {
   struct dcep_open_message *open_req = (struct dcep_open_message *)packets;
   if (len < sizeof *open_req)
     return;
 
   int i;
-  for (i = 0; i < sctp->channel_num; ++i) {
-    if (sctp->channels[i])
+  for (i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
+    if (peer->channels[i])
       continue;
     break;
   }
 
-  if (i == sctp->channel_num) {
-    struct data_channel **new_channels =
-      (struct data_channel **)calloc(i + CHANNEL_NUMBER_STEP, sizeof(struct data_channel *));
-    if (new_channels == NULL)
-      return;
+  if (i == RTCDC_MAX_CHANNEL_NUM)
+    return;
 
-    memcpy(new_channels, sctp->channels, i * sizeof(struct data_channel));
-    free(sctp->channels);
-    sctp->channels = new_channels;
-    sctp->channel_num += CHANNEL_NUMBER_STEP;
-  }
-
-  struct data_channel *ch = new_data_channel(open_req, sid);
+  struct rtcdc_data_channel *ch = new_data_channel(open_req, sid);
   if (ch == NULL)
     return;
-  sctp->channels[i] = ch;
+  peer->channels[i] = ch;
 
-  if (sctp->on_channel)
-    sctp->on_channel(ch);
+  if (peer->on_channel)
+    peer->on_channel(ch);
 
   struct dcep_ack_message ack;
   ack.message_type = DATA_CHANNEL_ACK;
 
-  if (send_sctp_message(sctp, &ack, sizeof ack, sid, WEBRTC_CONTROL_PPID) < 0) {
+  if (send_sctp_message(peer->transport->sctp, &ack, sizeof ack, sid, WEBRTC_CONTROL_PPID) < 0) {
 #ifdef DEBUG_SCTP
     fprintf(stderr, "sending DCEP ack failed\n");
 #endif
@@ -77,10 +69,10 @@ handle_rtcdc_open_request(struct sctp_transport *sctp, uint16_t sid, void *packe
 }
 
 static void
-handle_rtcdc_open_ack(struct sctp_transport *sctp, uint16_t sid)
+handle_rtcdc_open_ack(struct rtcdc_peer_connection *peer, uint16_t sid)
 {
-  for (int i = 0; i < sctp->channel_num; ++i) {
-    struct data_channel *ch = sctp->channels[i];
+  for (int i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
+    struct rtcdc_data_channel *ch = peer->channels[i];
     if (ch && ch->sid == sid) {
       ch->state = DATA_CHANNEL_CONNECTED;
       break;
@@ -89,16 +81,16 @@ handle_rtcdc_open_ack(struct sctp_transport *sctp, uint16_t sid)
 }
 
 static void
-handle_rtcdc_data(struct sctp_transport *sctp, uint16_t sid, int type, void *packets, size_t len)
+handle_rtcdc_data(struct rtcdc_peer_connection *peer, uint16_t sid, int type, void *packets, size_t len)
 {
-  for (int i = 0; i < sctp->channel_num; ++i) {
-    struct data_channel *ch = sctp->channels[i];
+  for (int i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
+    struct rtcdc_data_channel *ch = peer->channels[i];
     if (ch && ch->sid == sid) {
       if (ch->state == DATA_CHANNEL_CLOSED)
         ch->state = DATA_CHANNEL_CONNECTED;
 
       if (ch->on_message)
-        ch->on_message(ch, type, packets, len);
+        ch->on_message(ch, type, packets, len, ch->user_data);
 
       break;
     }
@@ -106,7 +98,7 @@ handle_rtcdc_data(struct sctp_transport *sctp, uint16_t sid, int type, void *pac
 }
 
 void
-handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
+handle_rtcdc_message(struct rtcdc_peer_connection *peer, void *packets, size_t len,
                      uint32_t ppid, uint16_t sid)
 {
   switch (ppid) {
@@ -114,94 +106,24 @@ handle_rtcdc_message(struct sctp_transport *sctp, void *packets, size_t len,
       {
         uint8_t msg_type = ((uint8_t *)packets)[0];
         if (msg_type == DATA_CHANNEL_OPEN)
-          handle_rtcdc_open_request(sctp, sid, packets, len);
+          handle_rtcdc_open_request(peer, sid, packets, len);
         else if (msg_type == DATA_CHANNEL_ACK)
-          handle_rtcdc_open_ack(sctp, sid);
+          handle_rtcdc_open_ack(peer, sid);
       }
       break;
     case WEBRTC_STRING_PPID:
     case WEBRTC_STRING_PARTIAL_PPID:
-      handle_rtcdc_data(sctp, sid, DATA_TYPE_STRING, packets, len);
+      handle_rtcdc_data(peer, sid, DATA_TYPE_STRING, packets, len);
       break;
     case WEBRTC_BINARY_PPID:
     case WEBRTC_BINARY_PARTIAL_PPID:
-      handle_rtcdc_data(sctp, sid, DATA_TYPE_BINARY, packets, len);
+      handle_rtcdc_data(peer, sid, DATA_TYPE_BINARY, packets, len);
       break;
     case WEBRTC_STRING_EMPTY_PPID:
     case WEBRTC_BINARY_EMPTY_PPID:
-      handle_rtcdc_data(sctp, sid, DATA_TYPE_EMPTY, packets, len);
+      handle_rtcdc_data(peer, sid, DATA_TYPE_EMPTY, packets, len);
       break;
     default:
       break;
   }
-}
-
-struct data_channel *
-create_reliable_data_channel(struct sctp_transport *sctp, const char *label, const char *protocol,
-                             void (*on_message)(struct data_channel *ch, int datatype, void *packets, size_t len))
-{
-  if (sctp == NULL || label == NULL)
-    return NULL;
-
-  struct dcep_open_message *req;
-  int rlen = sizeof *req + strlen(label) + strlen(protocol);
-  req = (struct dcep_open_message *)calloc(1, rlen);
-  if (req == NULL)
-    return NULL;
-
-  int i;
-  for (i = 0; i < sctp->channel_num; ++i) {
-    if (sctp->channels[i])
-      continue;
-    break;
-  }
-
-  if (i == sctp->channel_num) {
-    struct data_channel **new_channels =
-      (struct data_channel **)calloc(i + CHANNEL_NUMBER_STEP, sizeof(struct data_channel *));
-    if (new_channels == NULL) {
-      free(req);
-      return NULL;
-    }
-
-    memcpy(new_channels, sctp->channels, i * sizeof(struct data_channel));
-    free(sctp->channels);
-    sctp->channels = new_channels;
-    sctp->channel_num += CHANNEL_NUMBER_STEP;
-  }
-
-  struct data_channel *ch = (struct data_channel *)calloc(1, sizeof *ch);
-  if (ch == NULL) {
-    free(req);
-    return NULL;
-  }
-  sctp->channels[i] = ch;
-
-  ch->type = DATA_CHANNEL_RELIABLE;
-  ch->state = DATA_CHANNEL_CONNECTING;
-  ch->on_message = on_message;
-  ch->label = strdup(label);
-  ch->protocol = strdup(protocol);
-  ch->sid = sctp->stream_cursor;
-  sctp->stream_cursor += 2;
-
-  req->message_type = DATA_CHANNEL_OPEN;
-  req->channel_type = ch->type;
-  req->priority = htons(0);
-  req->reliability_param = htonl(0);
-  req->label_length = htons(strlen(label));
-  req->protocol_length = htons(strlen(protocol));
-  memcpy(req->label_and_protocol, label, strlen(label));
-  memcpy(req->label_and_protocol + strlen(label), protocol, strlen(protocol));
-
-  int ret = send_sctp_message(sctp, req, rlen, ch->sid, WEBRTC_CONTROL_PPID);
-  free(req);
-
-  if (ret < 0) {
-    free(ch);
-    ch = NULL;
-    sctp->channels[i] = NULL;
-  }
-
-  return ch;
 }

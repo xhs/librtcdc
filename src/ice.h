@@ -10,13 +10,10 @@ extern "C" {
 #endif
 
 #include <agent.h>
-#include <glib.h>
-#include "util.h"
-#include "dtls.h"
+
+struct rtcdc_peer_connection;
 
 struct ice_transport {
-  struct dtls_transport *dtls;
-  struct sctp_transport *sctp;
   NiceAgent *agent;
   guint stream_id;
   GMainLoop *loop;
@@ -26,13 +23,13 @@ struct ice_transport {
 };
 
 struct ice_transport *
-create_ice_transport(struct dtls_transport *dtls, struct sctp_transport *sctp, int controlling);
+create_ice_transport(struct rtcdc_peer_connection *peer, int controlling);
 
 void
 destroy_ice_transport(struct ice_transport *ice);
 
 gpointer
-ice_thread(gpointer ice_trans);
+ice_thread(gpointer peer);
 
 #ifdef  __cplusplus
 }
