@@ -27,7 +27,7 @@ new_data_channel(struct dcep_open_message *open_req, uint16_t sid)
     ch->label = strndup(open_req->label_and_protocol, open_req->label_length);
   if (open_req->protocol_length > 0)
     ch->protocol = strndup(open_req->label_and_protocol + open_req->label_length, open_req->protocol_length);
-  ch->state = DATA_CHANNEL_CONNECTED;
+  ch->state = RTCDC_CHANNEL_STATE_CONNECTED;
   ch->sid = sid;
 
   return ch;
@@ -53,6 +53,7 @@ handle_rtcdc_open_request(struct rtcdc_peer_connection *peer, uint16_t sid, void
   struct rtcdc_data_channel *ch = new_data_channel(open_req, sid);
   if (ch == NULL)
     return;
+  ch->sctp = peer->transport->sctp;
   peer->channels[i] = ch;
 
   if (peer->on_channel)
@@ -74,7 +75,7 @@ handle_rtcdc_open_ack(struct rtcdc_peer_connection *peer, uint16_t sid)
   for (int i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
     struct rtcdc_data_channel *ch = peer->channels[i];
     if (ch && ch->sid == sid) {
-      ch->state = DATA_CHANNEL_CONNECTED;
+      ch->state = RTCDC_CHANNEL_STATE_CONNECTED;
       break;
     }
   }
@@ -86,8 +87,8 @@ handle_rtcdc_data(struct rtcdc_peer_connection *peer, uint16_t sid, int type, vo
   for (int i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
     struct rtcdc_data_channel *ch = peer->channels[i];
     if (ch && ch->sid == sid) {
-      if (ch->state == DATA_CHANNEL_CLOSED)
-        ch->state = DATA_CHANNEL_CONNECTED;
+      if (ch->state == RTCDC_CHANNEL_STATE_CLOSED)
+        ch->state = RTCDC_CHANNEL_STATE_CONNECTED;
 
       if (ch->on_message)
         ch->on_message(ch, type, packets, len, ch->user_data);
@@ -113,15 +114,15 @@ handle_rtcdc_message(struct rtcdc_peer_connection *peer, void *packets, size_t l
       break;
     case WEBRTC_STRING_PPID:
     case WEBRTC_STRING_PARTIAL_PPID:
-      handle_rtcdc_data(peer, sid, DATA_TYPE_STRING, packets, len);
+      handle_rtcdc_data(peer, sid, RTCDC_DATATYPE_STRING, packets, len);
       break;
     case WEBRTC_BINARY_PPID:
     case WEBRTC_BINARY_PARTIAL_PPID:
-      handle_rtcdc_data(peer, sid, DATA_TYPE_BINARY, packets, len);
+      handle_rtcdc_data(peer, sid, RTCDC_DATATYPE_BINARY, packets, len);
       break;
     case WEBRTC_STRING_EMPTY_PPID:
     case WEBRTC_BINARY_EMPTY_PPID:
-      handle_rtcdc_data(peer, sid, DATA_TYPE_EMPTY, packets, len);
+      handle_rtcdc_data(peer, sid, RTCDC_DATATYPE_EMPTY, packets, len);
       break;
     default:
       break;

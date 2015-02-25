@@ -13,10 +13,20 @@ extern "C" {
 #define RTCDC_MAX_CHANNEL_NUM 32
 #endif
 
-#define RTCDC_ROLE_UNKNOWN 0
-#define RTCDC_ROLE_CLIENT  1
-#define RTCDC_ROLE_SERVER  2
+#define RTCDC_PEER_ROLE_UNKNOWN 0
+#define RTCDC_PEER_ROLE_CLIENT  1
+#define RTCDC_PEER_ROLE_SERVER  2
 
+#define RTCDC_CHANNEL_STATE_CLOSED     0
+#define RTCDC_CHANNEL_STATE_CONNECTING 1
+#define RTCDC_CHANNEL_STATE_CONNECTED  2
+
+#define RTCDC_DATATYPE_STRING 0
+#define RTCDC_DATATYPE_BINARY 1
+#define RTCDC_DATATYPE_EMPTY  2
+
+struct ice_transport;
+struct dtls_context;
 struct dtls_transport;
 struct sctp_transport;
 struct rtcdc_data_channel;
@@ -35,6 +45,7 @@ struct rtcdc_data_channel {
   char *protocol;
   int state;
   uint16_t sid;
+  struct sctp_transport *sctp;
   rtcdc_on_message_cb on_message;
   void *user_data;
 };
@@ -48,6 +59,7 @@ struct rtcdc_transport {
 };
 
 struct rtcdc_peer_connection {
+  int state;
   struct rtcdc_transport *transport;
   struct rtcdc_data_channel *channels[RTCDC_MAX_CHANNEL_NUM];
   rtcdc_on_channel_cb on_channel;

@@ -259,7 +259,7 @@ sctp_startup_thread(gpointer user_data)
   if (ice->exit_thread)
     return NULL;
 
-  if (transport->role == RTCDC_ROLE_CLIENT) {
+  if (transport->role == RTCDC_PEER_ROLE_CLIENT) {
     struct sockaddr_conn sconn;
     memset(&sconn, 0, sizeof sconn);
     sconn.sconn_family = AF_CONN;

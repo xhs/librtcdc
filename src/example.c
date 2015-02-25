@@ -9,5 +9,7 @@
 
 int main(int argc, char *argv[])
 {
+  struct rtcdc_peer_connection peer;
+  printf("%zu\n", sizeof peer);
   return 0;
 }

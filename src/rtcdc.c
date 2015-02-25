@@ -29,9 +29,9 @@ create_rtcdc_transport(struct rtcdc_peer_connection *peer, int remote_port)
     return NULL;
 
   if (remote_port > 0)
-    transport->role = RTCDC_ROLE_CLIENT;
+    transport->role = RTCDC_PEER_ROLE_CLIENT;
   else
-    transport->role = RTCDC_ROLE_SERVER;
+    transport->role = RTCDC_PEER_ROLE_SERVER;
 
   if (g_dtls_context == NULL) {
     g_dtls_context = create_dtls_context("./test.crt", "./test.key");
@@ -41,7 +41,7 @@ create_rtcdc_transport(struct rtcdc_peer_connection *peer, int remote_port)
   transport->ctx = g_dtls_context;
   g_context_ref++;
 
-  int client = transport->role == RTCDC_ROLE_CLIENT ? 1 : 0;
+  int client = transport->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
   struct dtls_transport *dtls = create_dtls_transport(transport->ctx, client);
   if (dtls == NULL)
     goto dtls_null_err;
@@ -52,7 +52,7 @@ create_rtcdc_transport(struct rtcdc_peer_connection *peer, int remote_port)
     goto sctp_null_err;
   transport->sctp = sctp;
 
-  int controlling = transport->role == RTCDC_ROLE_CLIENT ? 1 : 0;
+  int controlling = transport->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
   struct ice_transport *ice = create_ice_transport(peer, controlling);
   if (ice == NULL)
     goto ice_null_err;
@@ -120,7 +120,7 @@ rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer)
 
   if (peer->channels) {
     for (int i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
-      // todo: clean up channels here...
+      rtcdc_destroy_data_channel(peer->channels[i]);
     }
     free(peer->channels);
   }
@@ -144,7 +144,7 @@ rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer)
     peer->transport = transport;
   }
 
-  int client = transport->role == RTCDC_ROLE_CLIENT ? 1 : 0;
+  int client = transport->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
   return generate_local_sdp(transport, client);
 }
 
@@ -233,6 +233,7 @@ rtcdc_create_reliable_ordered_channel(struct rtcdc_peer_connection *peer,
     return NULL;
   ch->on_message = on_message;
   ch->user_data = user_data;
+  ch->sctp = sctp;
 
   struct dcep_open_message *req;
   int rlen = sizeof *req + strlen(label) + strlen(protocol);
@@ -241,9 +242,11 @@ rtcdc_create_reliable_ordered_channel(struct rtcdc_peer_connection *peer,
     goto open_channel_err;
 
   ch->type = DATA_CHANNEL_RELIABLE;
-  ch->state = DATA_CHANNEL_CONNECTING;
-  ch->label = strdup(label);
-  ch->protocol = strdup(protocol);
+  ch->state = RTCDC_CHANNEL_STATE_CONNECTING;
+  if (label)
+    ch->label = strdup(label);
+  if (protocol)
+    ch->protocol = strdup(protocol);
   ch->sid = sctp->stream_cursor;
   sctp->stream_cursor += 2;
 
@@ -251,8 +254,10 @@ rtcdc_create_reliable_ordered_channel(struct rtcdc_peer_connection *peer,
   req->channel_type = ch->type;
   req->priority = htons(0);
   req->reliability_param = htonl(0);
-  req->label_length = htons(strlen(label));
-  req->protocol_length = htons(strlen(protocol));
+  if (label)
+    req->label_length = htons(strlen(label));
+  if (protocol)
+    req->protocol_length = htons(strlen(protocol));
   memcpy(req->label_and_protocol, label, strlen(label));
   memcpy(req->label_and_protocol + strlen(label), protocol, strlen(protocol));
 
@@ -269,4 +274,49 @@ open_channel_err:
 
   peer->channels[i] = ch;
   return ch;
+}
+
+void
+rtcdc_destroy_data_channel(struct rtcdc_data_channel *channel)
+{
+  if (channel == NULL)
+    return;
+
+  // todo: close channel
+  if (channel->label)
+    free(channel->label);
+  if (channel->protocol)
+    free(channel->protocol);
+}
+
+int
+rtcdc_send_message(struct rtcdc_data_channel *channel, int datatype, void *data, size_t len)
+{
+  if (channel == NULL)
+    return -1;
+
+  int ppid;
+  if (datatype == RTCDC_DATATYPE_STRING) {
+    if (data == NULL || len == 0)
+      ppid = WEBRTC_STRING_EMPTY_PPID;
+    else
+      ppid = WEBRTC_STRING_PPID;
+  } else if (datatype == RTCDC_DATATYPE_BINARY) {
+    if (data == NULL || len == 0)
+      ppid = WEBRTC_BINARY_EMPTY_PPID;
+    else
+      ppid = WEBRTC_BINARY_PPID;
+  } else
+    return -1;
+
+  return send_sctp_message(channel->sctp, data, len, channel->sid, ppid);
+}
+
+void
+rtcdc_loop(struct rtcdc_peer_connection *peer)
+{
+  if (peer == NULL || peer->transport == NULL)
+    return;
+
+  // loop
 }

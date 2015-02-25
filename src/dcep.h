@@ -34,14 +34,6 @@ extern "C" {
 #define DATA_CHANNEL_PRIORITY_HIGH         512
 #define DATA_CHANNEL_PRIORITY_EXTRA_HIGH   1024
 
-#define DATA_CHANNEL_CLOSED     0
-#define DATA_CHANNEL_CONNECTING 1
-#define DATA_CHANNEL_CONNECTED  2
-
-#define DATA_TYPE_STRING 0
-#define DATA_TYPE_BINARY 1
-#define DATA_TYPE_EMPTY  2
-
 struct rtcdc_peer_connection;
 
 struct dcep_open_message {
