@@ -34,7 +34,7 @@ create_rtcdc_transport(struct rtcdc_peer_connection *peer, int remote_port)
     transport->role = RTCDC_PEER_ROLE_SERVER;
 
   if (g_dtls_context == NULL) {
-    g_dtls_context = create_dtls_context("./test.crt", "./test.key");
+    g_dtls_context = create_dtls_context("librtcdc");
     if (g_dtls_context == NULL)
       goto ctx_null_err;
   }

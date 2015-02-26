@@ -4,8 +4,81 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/pem.h>
+#include <openssl/bn.h>
+#include <openssl/rsa.h>
+#include <openssl/crypto.h>
 #include "common.h"
 #include "dtls.h"
+
+static EVP_PKEY *
+gen_key()
+{
+  EVP_PKEY *pkey = EVP_PKEY_new();
+  BIGNUM *exponent = BN_new();
+  RSA *rsa = RSA_new();
+  if (!pkey || !exponent || !rsa ||
+      !BN_set_word(exponent, 0x10001) || // 65537
+      !RSA_generate_key_ex(rsa, 1024, exponent, NULL) ||
+      !EVP_PKEY_assign_RSA(pkey, rsa)) {
+    EVP_PKEY_free(pkey);
+    BN_free(exponent);
+    RSA_free(rsa);
+    return NULL;
+  }
+  BN_free(exponent);
+  return pkey;
+}
+
+static X509 *
+gen_cert(EVP_PKEY* pkey, const char *common) {
+  X509 *x509 = NULL;
+  BIGNUM *serial_number = NULL;
+  X509_NAME *name = NULL;
+
+  if ((x509 = X509_new()) == NULL)
+    goto cert_err;
+
+  if (!X509_set_pubkey(x509, pkey))
+    goto cert_err;
+
+  ASN1_INTEGER* asn1_serial_number;
+  if ((serial_number = BN_new()) == NULL ||
+      !BN_pseudo_rand(serial_number, 64, 0, 0) ||
+      (asn1_serial_number = X509_get_serialNumber(x509)) == NULL ||
+      !BN_to_ASN1_INTEGER(serial_number, asn1_serial_number))
+    goto cert_err;
+
+  if (!X509_set_version(x509, 0L))  // version 1
+    goto cert_err;
+
+  if ((name = X509_NAME_new()) == NULL ||
+      !X509_NAME_add_entry_by_NID(
+          name, NID_commonName, MBSTRING_UTF8,
+          (unsigned char*)common, -1, -1, 0) ||
+      !X509_set_subject_name(x509, name) ||
+      !X509_set_issuer_name(x509, name))
+    goto cert_err;
+
+  if (!X509_gmtime_adj(X509_get_notBefore(x509), 0) ||
+      !X509_gmtime_adj(X509_get_notAfter(x509), 365 * 24 * 3600))
+    goto cert_err;
+
+  if (!X509_sign(x509, pkey, EVP_sha1()))
+    goto cert_err;
+
+  if (0) {
+cert_err:  
+    X509_free(x509);
+    x509 = NULL;
+  }
+  BN_free(serial_number);
+  X509_NAME_free(name);
+
+  return x509;
+}
 
 static int
 verify_peer_certificate_cb(int ok, X509_STORE_CTX *ctx)
@@ -14,8 +87,11 @@ verify_peer_certificate_cb(int ok, X509_STORE_CTX *ctx)
 }
 
 struct dtls_context *
-create_dtls_context(const char *cert, const char *key)
+create_dtls_context(const char *common)
 {
+  if (common == NULL)
+    return NULL;
+
   struct dtls_context *context = (struct dtls_context *)calloc(1, sizeof *context);
   if (context == NULL)
     return NULL;
@@ -32,33 +108,25 @@ create_dtls_context(const char *cert, const char *key)
   if (SSL_CTX_set_cipher_list(ctx, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") != 1)
     goto ctx_err;
 
+  SSL_CTX_set_read_ahead(ctx, 1);
   SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, verify_peer_certificate_cb);
-  // todo: generate cert/key dynamically
-  SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
-  SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
+
+  EVP_PKEY *key = gen_key();
+  if (key == NULL)
+    goto ctx_err;
+  SSL_CTX_use_PrivateKey(ctx, key);
+
+  X509 *cert = gen_cert(key, common);
+  if (cert == NULL)
+    goto ctx_err;
+  SSL_CTX_use_certificate(ctx, cert);
+  
   if (SSL_CTX_check_private_key(ctx) != 1)
     goto ctx_err;
 
-  BIO *cert_bio = BIO_new(BIO_s_file());
-  if (cert_bio == NULL)
-    goto ctx_err;
-  
-  if (BIO_read_filename(cert_bio, cert) != 1) {
-    BIO_free_all(cert_bio);
-    goto ctx_err;
-  }
-
-  X509 *x509_cert = PEM_read_bio_X509(cert_bio, NULL, 0, NULL);
-  if (x509_cert == NULL) {
-    BIO_free_all(cert_bio);
-    goto ctx_err;
-  }
-
   unsigned int len;
   unsigned char buf[BUFFER_SIZE];
-  X509_digest(x509_cert, EVP_sha256(), buf, &len);
-  BIO_free_all(cert_bio);
-  X509_free(x509_cert);
+  X509_digest(cert, EVP_sha256(), buf, &len);
 
   char *p = context->fingerprint;
   for (int i = 0; i < len; ++i) {

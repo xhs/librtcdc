@@ -30,7 +30,7 @@ struct dtls_transport {
 };
 
 struct dtls_context *
-create_dtls_context(const char *cert, const char *key);
+create_dtls_context(const char *common);
 
 void
 destroy_dtls_context(struct dtls_context *context);
