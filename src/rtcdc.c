@@ -318,5 +318,19 @@ rtcdc_loop(struct rtcdc_peer_connection *peer)
   if (peer == NULL || peer->transport == NULL)
     return;
 
-  // loop
+  GThread *thread_ice = g_thread_new("ICE thread", &ice_thread, peer);
+  GThread *thread_sctp = g_thread_new("SCTP thread", &sctp_thread, peer);
+  GThread *thread_startup = g_thread_new("SCTP startup thread", &sctp_startup_thread, peer);
+
+  struct ice_transport *ice = peer->transport->ice;
+  g_main_loop_run(ice->loop);
+  peer->exit_thread = TRUE;
+
+  g_thread_join(thread_ice);
+  g_thread_join(thread_sctp);
+  g_thread_join(thread_startup);
+
+  g_thread_unref(thread_ice);
+  g_thread_unref(thread_sctp);
+  g_thread_unref(thread_startup);
 }

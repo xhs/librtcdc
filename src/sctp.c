@@ -193,18 +193,18 @@ sctp_thread(gpointer user_data)
   struct dtls_transport *dtls = transport->dtls;
   struct sctp_transport *sctp = transport->sctp;
 
-  while (!ice->exit_thread && !ice->negotiation_done)
+  while (!peer->exit_thread && !ice->negotiation_done)
     g_usleep(10000);
-  if (ice->exit_thread)
+  if (peer->exit_thread)
     return NULL;
 
-  while (!ice->exit_thread && !dtls->handshake_done)
+  while (!peer->exit_thread && !dtls->handshake_done)
     g_usleep(10000);
-  if (ice->exit_thread)
+  if (peer->exit_thread)
     return NULL;
 
   char buf[BUFFER_SIZE];
-  while (!ice->exit_thread) {
+  while (!peer->exit_thread) {
     if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0) {
       g_usleep(5000);
       continue;
@@ -249,14 +249,14 @@ sctp_startup_thread(gpointer user_data)
   struct dtls_transport *dtls = transport->dtls;
   struct sctp_transport *sctp = transport->sctp;
 
-  while (!ice->exit_thread && !ice->negotiation_done)
+  while (!peer->exit_thread && !ice->negotiation_done)
     g_usleep(10000);
-  if (ice->exit_thread)
+  if (peer->exit_thread)
     return NULL;
 
-  while (!ice->exit_thread && !dtls->handshake_done)
+  while (!peer->exit_thread && !dtls->handshake_done)
     g_usleep(10000);
-  if (ice->exit_thread)
+  if (peer->exit_thread)
     return NULL;
 
   if (transport->role == RTCDC_PEER_ROLE_CLIENT) {

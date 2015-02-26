@@ -17,7 +17,6 @@ struct ice_transport {
   NiceAgent *agent;
   guint stream_id;
   GMainLoop *loop;
-  gboolean exit_thread;
   gboolean gathering_done;
   gboolean negotiation_done;
 };

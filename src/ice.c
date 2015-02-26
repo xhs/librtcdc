@@ -32,7 +32,7 @@ component_state_changed_cb(NiceAgent *agent, guint stream_id,
     ice->negotiation_done = TRUE;
   } else if (state == NICE_COMPONENT_STATE_FAILED) {
     g_main_loop_quit(ice->loop);
-    ice->exit_thread = TRUE;
+    peer->exit_thread = TRUE;
   }
 }
 
@@ -144,14 +144,14 @@ ice_thread(gpointer user_data)
   struct ice_transport *ice = transport->ice;
   struct dtls_transport *dtls = transport->dtls;
 
-  while (!ice->exit_thread && !ice->gathering_done)
+  while (!peer->exit_thread && !ice->gathering_done)
     g_usleep(10000);
-  if (ice->exit_thread)
+  if (peer->exit_thread)
     return NULL;
 
-  while (!ice->exit_thread && !ice->negotiation_done)
+  while (!peer->exit_thread && !ice->negotiation_done)
     g_usleep(10000);
-  if (ice->exit_thread)
+  if (peer->exit_thread)
     return NULL;
 
   if (dtls->role == PEER_CLIENT) {
@@ -162,7 +162,7 @@ ice_thread(gpointer user_data)
 
   // need a external thread to start SCTP when DTLS handshake is done
   char buf[BUFFER_SIZE];
-  while (!ice->exit_thread) {
+  while (!peer->exit_thread) {
     if (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
       g_mutex_lock(&dtls->dtls_mutex);
       int nbytes = BIO_read(dtls->outgoing_bio, buf, sizeof buf);
