@@ -19,7 +19,7 @@ on_message(struct rtcdc_data_channel *channel,
           len, channel->label);
 
   if (channel == NULL) {
-    channel = rtcdc_create_reliable_ordered_channel(peer, "example", "test", on_message, NULL);
+    channel = rtcdc_create_data_channel(peer, "example", NULL, on_message, NULL);
     if (channel == NULL)
       fprintf(stderr, "failed to create new channel\n");
   }

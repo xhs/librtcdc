@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 #ifndef RTCDC_MAX_CHANNEL_NUM
-#define RTCDC_MAX_CHANNEL_NUM 32
+#define RTCDC_MAX_CHANNEL_NUM 128
 #endif
 
 #ifndef RTCDC_MAX_IN_STREAM
@@ -92,9 +92,9 @@ int
 rtcdc_parse_candidate_sdp(struct rtcdc_peer_connection *peer, const char *candidates);
 
 struct rtcdc_data_channel *
-rtcdc_create_reliable_ordered_channel(struct rtcdc_peer_connection *peer,
-                                      const char *label, const char *protocol,
-                                      rtcdc_on_message_cb, void *user_data);
+rtcdc_create_data_channel(struct rtcdc_peer_connection *peer,
+                          const char *label, const char *protocol,
+                          rtcdc_on_message_cb, void *user_data);
 
 void
 rtcdc_destroy_data_channel(struct rtcdc_data_channel *channel);
