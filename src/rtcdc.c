@@ -17,16 +17,17 @@
 static struct dtls_context *g_dtls_context = NULL;
 static int g_context_ref = 0;
 
-static struct rtcdc_transport *
+static int
 create_rtcdc_transport(struct rtcdc_peer_connection *peer, int remote_port)
 {
   if (peer == NULL)
-    return NULL;
+    return -1;
 
   struct rtcdc_transport *transport =
     (struct rtcdc_transport *)calloc(1, sizeof *transport);
   if (transport == NULL)
-    return NULL;
+    return -1;
+  peer->transport = transport;
 
   if (remote_port > 0)
     transport->role = RTCDC_PEER_ROLE_CLIENT;
@@ -42,21 +43,18 @@ create_rtcdc_transport(struct rtcdc_peer_connection *peer, int remote_port)
   g_context_ref++;
 
   int client = transport->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
-  struct dtls_transport *dtls = create_dtls_transport(transport->ctx, client);
+  struct dtls_transport *dtls = create_dtls_transport(peer, transport->ctx, client);
   if (dtls == NULL)
     goto dtls_null_err;
-  transport->dtls = dtls;
 
   struct sctp_transport *sctp = create_sctp_transport(peer, 0, remote_port);
   if (sctp == NULL)
     goto sctp_null_err;
-  transport->sctp = sctp;
 
   int controlling = transport->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
   struct ice_transport *ice = create_ice_transport(peer, controlling);
   if (ice == NULL)
     goto ice_null_err;
-  transport->ice = ice;
 
   if (0) {
 ice_null_err:
@@ -70,11 +68,12 @@ dtls_null_err:
       g_context_ref = 0;
     }
 ctx_null_err:
+    peer->transport = NULL;
     free(transport);
-    transport = NULL;
+    return -1;
   }
 
-  return transport;
+  return 0;
 }
 
 static void
@@ -128,6 +127,7 @@ rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer)
     destroy_rtcdc_transport(peer->transport);
 
   free(peer);
+  peer = NULL;
 }
 
 char *
@@ -136,16 +136,12 @@ rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer)
   if (peer == NULL)
     return NULL;
   
-  struct rtcdc_transport *transport = peer->transport;
-  if (transport == NULL) {
-    transport = create_rtcdc_transport(peer, 0);
-    if (transport == NULL)
+  if (peer->transport == NULL) {
+    if (create_rtcdc_transport(peer, 0) < 0)
       return NULL;
-    peer->transport = transport;
   }
-
-  int client = transport->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
-  return generate_local_sdp(transport, client);
+  int client = peer->transport->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
+  return generate_local_sdp(peer->transport, client);
 }
 
 int
@@ -178,15 +174,12 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
   if (remote_port < 0)
     return -1;
 
-  struct rtcdc_transport *transport = peer->transport;
-  if (transport == NULL) {
-    transport = create_rtcdc_transport(peer, remote_port);
-    if (transport == NULL)
+  if (peer->transport == NULL) {
+    if (create_rtcdc_transport(peer, 0) < 0)
       return -1;
-    peer->transport = transport;
   }
 
-  return parse_remote_sdp(transport->ice, buf);
+  return parse_remote_sdp(peer->transport->ice, buf);
 }
 
 char *

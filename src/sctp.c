@@ -62,12 +62,13 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
 struct sctp_transport *
 create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
 {
-  if (peer == NULL)
+  if (peer == NULL || peer->transport == NULL)
     return NULL;
 
   struct sctp_transport *sctp = (struct sctp_transport *)calloc(1, sizeof *sctp);
   if (sctp == NULL)
     return NULL;
+  peer->transport->sctp = sctp;
 
   if (lport > 0)
     sctp->local_port = lport;
@@ -76,9 +77,9 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
 
   if (rport > 0) {
     sctp->remote_port = rport;
-    sctp->stream_cursor = 0;
+    sctp->stream_cursor = 0; // use even streams
   } else
-    sctp->stream_cursor = 1;
+    sctp->stream_cursor = 1; // use odd streams
 
   usrsctp_init(0, sctp_data_ready_cb, NULL);
   usrsctp_register_address(sctp);
@@ -126,7 +127,7 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
   struct linger lopt;
   lopt.l_onoff = 1;
   lopt.l_linger = 0;
-  // send abort when call close()
+  // send abort when close
   usrsctp_setsockopt(s, SOL_SOCKET, SO_LINGER, &lopt, sizeof lopt);
 
   struct sctp_assoc_value av;
@@ -139,8 +140,8 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
 
   struct sctp_initmsg init_msg;
   memset(&init_msg, 0, sizeof init_msg);
-  init_msg.sinit_num_ostreams = MAX_OUT_STREAM;
-  init_msg.sinit_max_instreams = MAX_IN_STREAM;
+  init_msg.sinit_num_ostreams = RTCDC_MAX_OUT_STREAM;
+  init_msg.sinit_max_instreams = RTCDC_MAX_IN_STREAM;
   usrsctp_setsockopt(s, IPPROTO_SCTP, SCTP_INITMSG, &init_msg, sizeof init_msg);
 
   struct sockaddr_conn sconn;
@@ -157,6 +158,7 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
 
   if (0) {
 trans_err:
+    peer->transport->sctp = NULL;
     usrsctp_finish();
     free(sctp);
     sctp = NULL;
@@ -194,21 +196,19 @@ sctp_thread(gpointer user_data)
   struct sctp_transport *sctp = transport->sctp;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(10000);
+    g_thread_yield();
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !dtls->handshake_done)
-    g_usleep(10000);
+    g_thread_yield();
   if (peer->exit_thread)
     return NULL;
 
   char buf[BUFFER_SIZE];
   while (!peer->exit_thread) {
-    if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0) {
-      g_usleep(5000);
-      continue;
-    }
+    if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0)
+      g_thread_yield();
 
     if (BIO_ctrl_pending(sctp->incoming_bio) > 0) {
       g_mutex_lock(&sctp->sctp_mutex);
@@ -250,12 +250,12 @@ sctp_startup_thread(gpointer user_data)
   struct sctp_transport *sctp = transport->sctp;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(10000);
+    g_thread_yield();
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !dtls->handshake_done)
-    g_usleep(10000);
+    g_thread_yield();
   if (peer->exit_thread)
     return NULL;
 
@@ -270,11 +270,11 @@ sctp_startup_thread(gpointer user_data)
 #endif
     if (usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn) < 0) {
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "sctp connection failed\n");
+      fprintf(stderr, "SCTP connection failed\n");
 #endif
     } else {
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "sctp connection connected\n");
+      fprintf(stderr, "SCTP connected\n");
 #endif
       sctp->handshake_done = TRUE;
     }
@@ -292,7 +292,7 @@ sctp_startup_thread(gpointer user_data)
     struct socket *s = usrsctp_accept(sctp->sock, (struct sockaddr *)&sconn, &len);
     if (s) {
 #ifdef DEBUG_SCTP
-    fprintf(stderr, "sctp connection accepted\n");
+    fprintf(stderr, "SCTP accepted\n");
 #endif
       sctp->handshake_done = TRUE;
       struct socket *t = sctp->sock;
@@ -300,7 +300,7 @@ sctp_startup_thread(gpointer user_data)
       usrsctp_close(t);
     } else {
 #ifdef DEBUG_SCTP
-    fprintf(stderr, "sctp connection failed\n");
+    fprintf(stderr, "SCTP acception failed\n");
 #endif
     }
   }
@@ -326,7 +326,7 @@ send_sctp_message(struct sctp_transport *sctp,
       if (usrsctp_sendv(sctp->sock, m->data, m->len, NULL, 0,
                         &info, sizeof info, SCTP_SENDV_SNDINFO, 0) < 0) {
 #ifdef DEBUG_SCTP
-        fprintf(stderr, "sending sctp message failed\n");
+        fprintf(stderr, "sending deferred SCTP message failed\n");
 #endif
       }
       free(m);
@@ -340,7 +340,7 @@ send_sctp_message(struct sctp_transport *sctp,
     if (usrsctp_sendv(sctp->sock, data, len, NULL, 0,
                       &info, sizeof info, SCTP_SENDV_SNDINFO, 0) < 0) {
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "sending sctp message failed\n");
+      fprintf(stderr, "sending SCTP message failed\n");
 #endif
       return -1;
     }

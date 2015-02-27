@@ -10,17 +10,7 @@ extern "C" {
 #endif
 
 #define BUFFER_SIZE (1 << 16)
-
-#define PEER_CLIENT 0
-#define PEER_SERVER 1
-
 #define SESSION_ID_SIZE 16
-
-#define CHANNEL_NUMBER_BASE 32
-#define CHANNEL_NUMBER_STEP 16
-
-#define MAX_IN_STREAM  1024
-#define MAX_OUT_STREAM 256
 
 #ifdef  __cplusplus
 }

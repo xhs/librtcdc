@@ -13,6 +13,14 @@ extern "C" {
 #define RTCDC_MAX_CHANNEL_NUM 32
 #endif
 
+#ifndef RTCDC_MAX_IN_STREAM
+#define RTCDC_MAX_IN_STREAM 1024
+#endif
+
+#ifndef RTCDC_MAX_OUT_STREAM
+#define RTCDC_MAX_OUT_STREAM 256
+#endif
+
 #define RTCDC_PEER_ROLE_UNKNOWN 0
 #define RTCDC_PEER_ROLE_CLIENT  1
 #define RTCDC_PEER_ROLE_SERVER  2

@@ -15,6 +15,8 @@ extern "C" {
 
 #define SHA256_FINGERPRINT_SIZE (95 + 1)
 
+struct rtcdc_peer_connection;
+
 struct dtls_context {
   SSL_CTX *ctx;
   char fingerprint[SHA256_FINGERPRINT_SIZE];
@@ -24,7 +26,6 @@ struct dtls_transport {
   SSL *ssl;
   BIO *incoming_bio;
   BIO *outgoing_bio;
-  int role;
   gboolean handshake_done;
   GMutex dtls_mutex;
 };
@@ -36,7 +37,8 @@ void
 destroy_dtls_context(struct dtls_context *context);
 
 struct dtls_transport *
-create_dtls_transport(const struct dtls_context *context, int client);
+create_dtls_transport(struct rtcdc_peer_connection *peer,
+                      const struct dtls_context *context, int client);
 
 void
 destroy_dtls_transport(struct dtls_transport *dtls);

@@ -73,12 +73,13 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
 struct ice_transport *
 create_ice_transport(struct rtcdc_peer_connection *peer, int controlling)
 {
-  if (peer == NULL)
+  if (peer == NULL || peer->transport == NULL)
     return NULL;
 
   struct ice_transport *ice = (struct ice_transport *)calloc(1, sizeof *ice);
   if (ice == NULL)
     return NULL;
+  peer->transport->ice = ice;
 
   GMainLoop *loop = g_main_loop_new(NULL, FALSE);
   if (loop == NULL) {
@@ -115,6 +116,7 @@ create_ice_transport(struct rtcdc_peer_connection *peer, int controlling)
 
   if (0) {
 trans_err:
+    peer->transport->ice = NULL;
     g_object_unref(agent);
     g_main_loop_unref(loop);
     free(ice);
@@ -145,16 +147,16 @@ ice_thread(gpointer user_data)
   struct dtls_transport *dtls = transport->dtls;
 
   while (!peer->exit_thread && !ice->gathering_done)
-    g_usleep(10000);
+    g_thread_yield();
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(10000);
+    g_thread_yield();
   if (peer->exit_thread)
     return NULL;
 
-  if (dtls->role == PEER_CLIENT) {
+  if (transport->role == RTCDC_PEER_ROLE_CLIENT) {
     // ugly
     g_usleep(500000);
     SSL_do_handshake(dtls->ssl);
@@ -178,7 +180,7 @@ ice_thread(gpointer user_data)
         g_mutex_unlock(&dtls->dtls_mutex);
       }
     } else {
-      g_usleep(5000);
+      g_thread_yield();
     }
   }
 

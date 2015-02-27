@@ -1,4 +1,2 @@
-*.o
-src/*.crt
-src/*.key
-src/test
+src/*.o
+src/example

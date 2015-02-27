@@ -12,6 +12,7 @@
 #include <openssl/crypto.h>
 #include "common.h"
 #include "dtls.h"
+#include "rtcdc.h"
 
 static EVP_PKEY *
 gen_key()
@@ -33,16 +34,16 @@ gen_key()
 }
 
 static X509 *
-gen_cert(EVP_PKEY* pkey, const char *common) {
+gen_cert(EVP_PKEY* pkey, const char *common, int days) {
   X509 *x509 = NULL;
   BIGNUM *serial_number = NULL;
   X509_NAME *name = NULL;
 
   if ((x509 = X509_new()) == NULL)
-    goto cert_err;
+    return NULL;
 
   if (!X509_set_pubkey(x509, pkey))
-    goto cert_err;
+    return NULL;
 
   ASN1_INTEGER* asn1_serial_number;
   if ((serial_number = BN_new()) == NULL ||
@@ -63,7 +64,7 @@ gen_cert(EVP_PKEY* pkey, const char *common) {
     goto cert_err;
 
   if (!X509_gmtime_adj(X509_get_notBefore(x509), 0) ||
-      !X509_gmtime_adj(X509_get_notAfter(x509), 365 * 24 * 3600))
+      !X509_gmtime_adj(X509_get_notAfter(x509), days * 24 * 3600))
     goto cert_err;
 
   if (!X509_sign(x509, pkey, EVP_sha1()))
@@ -108,7 +109,7 @@ create_dtls_context(const char *common)
   if (SSL_CTX_set_cipher_list(ctx, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") != 1)
     goto ctx_err;
 
-  SSL_CTX_set_read_ahead(ctx, 1);
+  SSL_CTX_set_read_ahead(ctx, 1); // for DTLS
   SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, verify_peer_certificate_cb);
 
   EVP_PKEY *key = gen_key();
@@ -116,7 +117,7 @@ create_dtls_context(const char *common)
     goto ctx_err;
   SSL_CTX_use_PrivateKey(ctx, key);
 
-  X509 *cert = gen_cert(key, common);
+  X509 *cert = gen_cert(key, common, 365);
   if (cert == NULL)
     goto ctx_err;
   SSL_CTX_use_certificate(ctx, cert);
@@ -157,14 +158,16 @@ destroy_dtls_context(struct dtls_context *context)
 }
 
 struct dtls_transport *
-create_dtls_transport(const struct dtls_context *context, int client)
+create_dtls_transport(struct rtcdc_peer_connection *peer,
+                      const struct dtls_context *context, int client)
 {
-  if (context == NULL || context->ctx == NULL)
+  if (peer == NULL || peer->transport == NULL || context == NULL || context->ctx == NULL)
     return NULL;
 
   struct dtls_transport *dtls = (struct dtls_transport *)calloc(1, sizeof *dtls);
   if (dtls == NULL)
     return NULL;
+  peer->transport->dtls = dtls;
 
   SSL *ssl = SSL_new(context->ctx);
   if (ssl == NULL)
@@ -190,16 +193,14 @@ create_dtls_transport(const struct dtls_context *context, int client)
   SSL_set_tmp_ecdh(dtls->ssl, ecdh);
   EC_KEY_free(ecdh);
 
-  if (client == 1) {
-    dtls->role = PEER_CLIENT;
+  if (client == 1)
     SSL_set_connect_state(dtls->ssl);
-  } else {
-    dtls->role = PEER_SERVER;
+  else
     SSL_set_accept_state(dtls->ssl);
-  }
 
   if (0) {
 trans_err:
+    peer->transport->dtls = NULL;
     SSL_free(ssl);
     free(dtls);
     dtls = NULL;
@@ -211,7 +212,7 @@ trans_err:
 void
 destroy_dtls_transport(struct dtls_transport *dtls)
 {
-  if (dtls != NULL)
+  if (dtls == NULL)
     return;
 
   SSL_free(dtls->ssl);

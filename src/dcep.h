@@ -51,7 +51,7 @@ struct dcep_ack_message {
 } __attribute__((packed, aligned(1)));
 
 void
-handle_rtcdc_message(struct rtcdc_peer_connection *peer, void *packets, size_t len,
+handle_rtcdc_message(struct rtcdc_peer_connection *peer, void *data, size_t len,
                      uint32_t ppid, uint16_t sid);
 
 #ifdef  __cplusplus
