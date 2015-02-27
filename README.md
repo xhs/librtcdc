@@ -1,4 +1,4 @@
-## librtcdc is a tiny WebRTC DataChannel implementation that works everywhere.
+## librtcdc is a tiny WebRTC DataChannel implementation that works everywhere (Pre-alpha).
 
 #### Prerequisites
 
