@@ -216,8 +216,10 @@ destroy_dtls_transport(struct dtls_transport *dtls)
     return;
 
   SSL_free(dtls->ssl);
-  BIO_free_all(dtls->incoming_bio);
-  BIO_free_all(dtls->outgoing_bio);
+  if (dtls->incoming_bio)
+    BIO_free_all(dtls->incoming_bio);
+  if (dtls->outgoing_bio)
+    BIO_free_all(dtls->outgoing_bio);
   free(dtls);
   dtls = NULL;
 }
