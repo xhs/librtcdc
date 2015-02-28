@@ -58,7 +58,7 @@ handle_rtcdc_open_request(struct rtcdc_peer_connection *peer, uint16_t sid, void
   peer->channels[i] = ch;
 
   if (peer->on_channel)
-    peer->on_channel(ch);
+    peer->on_channel(ch, peer->user_data);
 
   struct dcep_ack_message ack;
   ack.message_type = DATA_CHANNEL_ACK;

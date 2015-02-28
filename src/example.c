@@ -26,7 +26,7 @@ on_message(struct rtcdc_data_channel *channel,
 }
 
 static void
-on_channel(struct rtcdc_data_channel *channel)
+on_channel(struct rtcdc_data_channel *channel, void *user_data)
 {
   fprintf(stderr, "channel %s created\n", channel->label);
   channel->on_message = on_message;
@@ -34,7 +34,7 @@ on_channel(struct rtcdc_data_channel *channel)
 
 int main(int argc, char *argv[])
 {
-  peer = rtcdc_create_peer_connection(on_channel);
+  peer = rtcdc_create_peer_connection(on_channel, NULL);
   if (peer == NULL)
     return -1;
 

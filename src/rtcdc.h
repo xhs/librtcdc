@@ -42,7 +42,7 @@ struct rtcdc_data_channel;
 typedef void (*rtcdc_on_message_cb)(struct rtcdc_data_channel *channel,
                                     int datatype, void *data, size_t len, void *user_data);
 
-typedef void (*rtcdc_on_channel_cb)(struct rtcdc_data_channel *channel);
+typedef void (*rtcdc_on_channel_cb)(struct rtcdc_data_channel *channel, void *user_data);
 
 struct rtcdc_data_channel {
   uint8_t type;
@@ -71,10 +71,11 @@ struct rtcdc_peer_connection {
   struct rtcdc_transport *transport;
   struct rtcdc_data_channel *channels[RTCDC_MAX_CHANNEL_NUM];
   rtcdc_on_channel_cb on_channel;
+  void *user_data;
 };
 
 struct rtcdc_peer_connection *
-rtcdc_create_peer_connection(rtcdc_on_channel_cb);
+rtcdc_create_peer_connection(rtcdc_on_channel_cb, void *user_data);
 
 void
 rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer);

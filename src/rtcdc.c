@@ -100,13 +100,14 @@ destroy_rtcdc_transport(struct rtcdc_transport *transport)
 }
 
 struct rtcdc_peer_connection *
-rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel)
+rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel, void *user_data)
 {
   struct rtcdc_peer_connection *peer =
     (struct rtcdc_peer_connection *)calloc(1, sizeof *peer);
   if (peer == NULL)
     return NULL;
   peer->on_channel = on_channel;
+  peer->user_data = user_data;
 
   return peer;
 }
@@ -121,7 +122,6 @@ rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer)
     for (int i = 0; i < RTCDC_MAX_CHANNEL_NUM; ++i) {
       rtcdc_destroy_data_channel(peer->channels[i]);
     }
-    free(peer->channels);
   }
   if (peer->transport)
     destroy_rtcdc_transport(peer->transport);
