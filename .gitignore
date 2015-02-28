@@ -1,2 +1,8 @@
 src/*.o
 src/example
+src/*.so
+src/*.dylib
+python/build/*
+python/*.dylib
+python/pyrtcdc.c
+python/*.so
