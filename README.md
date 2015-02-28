@@ -2,6 +2,8 @@
 
 #### Prerequisites
 
+Python & Cython (only for python binding)
+
 ICE/UDP - [libnice](http://nice.freedesktop.org/wiki/)
 
 DTLS - [OpenSSL](https://www.openssl.org/)

@@ -7,10 +7,11 @@ cdef extern from "rtcdc.h":
     pass
 
   cdef struct rtcdc_data_channel:
-    void (*on_message)(rtcdc_data_channel *channel, \
-                       int datatype, void *data, size_t length, void *callback)
     char *label
     char *protocol
+    int state
+    void (*on_message)(rtcdc_data_channel *channel, \
+                       int datatype, void *data, size_t length, void *callback)
     void *user_data
 
   rtcdc_peer_connection * \
