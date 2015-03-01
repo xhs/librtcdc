@@ -196,19 +196,19 @@ sctp_thread(gpointer user_data)
   struct sctp_transport *sctp = transport->sctp;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_thread_yield();
+    g_usleep(2000);
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !dtls->handshake_done)
-    g_thread_yield();
+    g_usleep(2000);
   if (peer->exit_thread)
     return NULL;
 
   char buf[BUFFER_SIZE];
   while (!peer->exit_thread) {
     if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0)
-      g_thread_yield();
+      g_usleep(2000);
 
     if (BIO_ctrl_pending(sctp->incoming_bio) > 0) {
       g_mutex_lock(&sctp->sctp_mutex);
@@ -250,12 +250,12 @@ sctp_startup_thread(gpointer user_data)
   struct sctp_transport *sctp = transport->sctp;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_thread_yield();
+    g_usleep(2000);
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !dtls->handshake_done)
-    g_thread_yield();
+    g_usleep(2000);
   if (peer->exit_thread)
     return NULL;
 

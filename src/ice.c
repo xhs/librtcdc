@@ -147,12 +147,12 @@ ice_thread(gpointer user_data)
   struct dtls_transport *dtls = transport->dtls;
 
   while (!peer->exit_thread && !ice->gathering_done)
-    g_thread_yield();
+    g_usleep(2000);
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_thread_yield();
+    g_usleep(2000);
   if (peer->exit_thread)
     return NULL;
 
@@ -180,7 +180,7 @@ ice_thread(gpointer user_data)
         g_mutex_unlock(&dtls->dtls_mutex);
       }
     } else {
-      g_thread_yield();
+      g_usleep(2000);
     }
   }
 
