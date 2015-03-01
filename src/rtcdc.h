@@ -67,6 +67,8 @@ struct rtcdc_transport {
 };
 
 struct rtcdc_peer_connection {
+  char *stun_server;
+  uint16_t stun_port;
   int exit_thread;
   struct rtcdc_transport *transport;
   struct rtcdc_data_channel *channels[RTCDC_MAX_CHANNEL_NUM];
@@ -75,7 +77,8 @@ struct rtcdc_peer_connection {
 };
 
 struct rtcdc_peer_connection *
-rtcdc_create_peer_connection(rtcdc_on_channel_cb, void *user_data);
+rtcdc_create_peer_connection(rtcdc_on_channel_cb, const char *stun_server, uint16_t stun_port,
+                             void *user_data);
 
 void
 rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer);

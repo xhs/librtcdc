@@ -22,7 +22,9 @@ struct ice_transport {
 };
 
 struct ice_transport *
-create_ice_transport(struct rtcdc_peer_connection *peer, int controlling);
+create_ice_transport(struct rtcdc_peer_connection *peer,
+                     const char *stun_server, uint16_t stun_port,
+                     int controlling);
 
 void
 destroy_ice_transport(struct ice_transport *ice);

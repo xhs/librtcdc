@@ -7,5 +7,5 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 
 setup(
-    ext_modules = cythonize([Extension("pyrtcdc", ["pyrtcdc.pyx"], libraries=["rtcdc"])])
+  ext_modules = cythonize([Extension("pyrtcdc", ["pyrtcdc.pyx"], libraries=["rtcdc"])])
 )

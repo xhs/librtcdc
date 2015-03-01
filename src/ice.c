@@ -71,7 +71,9 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
 }
 
 struct ice_transport *
-create_ice_transport(struct rtcdc_peer_connection *peer, int controlling)
+create_ice_transport(struct rtcdc_peer_connection *peer,
+                     const char *stun_server, uint16_t stun_port,
+                     int controlling)
 {
   if (peer == NULL || peer->transport == NULL)
     return NULL;
@@ -95,6 +97,10 @@ create_ice_transport(struct rtcdc_peer_connection *peer, int controlling)
   ice->agent = agent;
 
   g_object_set(G_OBJECT(agent), "controlling-mode", controlling, NULL);
+  if (stun_server != NULL && strcmp(stun_server, "") != 0)
+    g_object_set(G_OBJECT(agent), "stun-server", stun_server, NULL);
+  if (stun_port > 0)
+    g_object_set(G_OBJECT(agent), "stun-server-port", stun_port, NULL);
 
   g_signal_connect(G_OBJECT(agent), "candidate-gathering-done",
     G_CALLBACK(candidate_gathering_done_cb), peer);

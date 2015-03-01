@@ -2,6 +2,8 @@
 # Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
 # This file is licensed under a GNU GPLv3 license.
 
+ctypedef unsigned int uint16_t
+
 cdef extern from "rtcdc.h":
   cdef struct rtcdc_peer_connection:
     pass
@@ -15,7 +17,8 @@ cdef extern from "rtcdc.h":
     void *user_data
 
   rtcdc_peer_connection * \
-  rtcdc_create_peer_connection(void (*on_channel)(rtcdc_data_channel *, void *), void *callback)
+  rtcdc_create_peer_connection(void (*on_channel)(rtcdc_data_channel *, void *), \
+                               const char *stun_server, uint16_t port, void *callback)
 
   void \
   rtcdc_destroy_peer_connection(rtcdc_peer_connection *peer)

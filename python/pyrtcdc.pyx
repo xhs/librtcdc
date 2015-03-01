@@ -20,8 +20,10 @@ cdef void on_message_callback(rtcdc_data_channel *channel, \
 cdef class PeerConnection:
   cdef rtcdc_peer_connection *_peer
 
-  def __cinit__(self, on_channel):
-    self._peer = crtcdc.rtcdc_create_peer_connection(on_channel_callback, <void*>on_channel)
+  def __cinit__(self, on_channel, stun_server='', stun_port=0):
+    if stun_server is None:
+      stun_server = ''
+    self._peer = crtcdc.rtcdc_create_peer_connection(on_channel_callback, stun_server, stun_port, <void*>on_channel)
 
   def __dealloc__(self):
     if self._peer is not NULL:
