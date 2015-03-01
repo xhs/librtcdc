@@ -23,11 +23,9 @@ cdef class PeerConnection:
   def __cinit__(self, on_channel):
     self._peer = crtcdc.rtcdc_create_peer_connection(on_channel_callback, <void*>on_channel)
 
-  # It crashes!!! :(
-  #
-  # def __dealloc__(self):
-  #   if self._peer is not NULL:
-  #     crtcdc.rtcdc_destroy_peer_connection(self._peer)
+  def __dealloc__(self):
+    if self._peer is not NULL:
+      crtcdc.rtcdc_destroy_peer_connection(self._peer)
 
   def generate_offer(self):
     return crtcdc.rtcdc_generate_offer_sdp(self._peer)
@@ -52,6 +50,9 @@ cdef class PeerConnection:
 
 cdef class DataChannel:
   cdef rtcdc_data_channel *_channel
+
+  def __dealloc__(self):
+    crtcdc.rtcdc_destroy_data_channel(self._channel)
 
   def send_message(self, int datatype, char *data, size_t length):
     if self._channel is NULL:
