@@ -6,7 +6,8 @@ ctypedef unsigned int uint16_t
 
 cdef extern from "rtcdc.h":
   cdef struct rtcdc_peer_connection:
-    pass
+    char *stun_server
+    uint16_t stun_port
 
   cdef struct rtcdc_data_channel:
     char *label

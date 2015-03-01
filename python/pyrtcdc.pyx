@@ -47,6 +47,14 @@ cdef class PeerConnection:
                                                    on_message_callback, <void*>on_message)
     return dc
 
+  @property
+  def stun_server(self):
+    return self._peer.stun_server
+
+  @property
+  def stun_port(self):
+    return self._peer.stun_port
+
   def loop(self):
     crtcdc.rtcdc_loop(self._peer)
 

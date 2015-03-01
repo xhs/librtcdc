@@ -10,10 +10,16 @@ def on_channel(channel):
 def on_message(channel, datatype, data):
   print 'received data from channel %s: %s' %(channel.label, data)
 
-peer = pyrtcdc.PeerConnection(on_channel, 'stun.stunprotocol.org')
+peer = pyrtcdc.PeerConnection(on_channel)
+
+print 'stun://%s:%d\n' %(peer.stun_server, peer.stun_port)
 
 offer = peer.generate_offer()
 print 'base64 encoded local offer sdp:\n%s\n' %(base64.b64encode(offer))
+
+# wait stun server
+import time
+time.sleep(10)
 
 cand = peer.generate_candidates()
 print 'local candidate sdp:\n%s' %(cand)
