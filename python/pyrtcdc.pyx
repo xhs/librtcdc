@@ -51,9 +51,6 @@ cdef class PeerConnection:
 cdef class DataChannel:
   cdef rtcdc_data_channel *_channel
 
-  def __dealloc__(self):
-    crtcdc.rtcdc_destroy_data_channel(self._channel)
-
   def send_message(self, int datatype, char *data, size_t length):
     if self._channel is NULL:
       return -1
