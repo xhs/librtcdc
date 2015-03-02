@@ -49,6 +49,8 @@ cdef class PeerConnection:
 
   @property
   def stun_server(self):
+    if self._peer.stun_server is NULL:
+      return ''
     return self._peer.stun_server
 
   @property
