@@ -39,8 +39,13 @@ struct dtls_transport;
 struct sctp_transport;
 struct rtcdc_data_channel;
 
+
+typedef void (*rtcdc_on_open_cb)(struct rtcdc_data_channel *channel, void *user_data);
+
 typedef void (*rtcdc_on_message_cb)(struct rtcdc_data_channel *channel,
                                     int datatype, void *data, size_t len, void *user_data);
+
+typedef void (*rtcdc_on_close_cb)(struct rtcdc_data_channel *channel, void *user_data);
 
 typedef void (*rtcdc_on_channel_cb)(struct rtcdc_data_channel *channel, void *user_data);
 
@@ -54,7 +59,9 @@ struct rtcdc_data_channel {
   int state;
   uint16_t sid;
   struct sctp_transport *sctp;
+  rtcdc_on_open_cb on_open;
   rtcdc_on_message_cb on_message;
+  rtcdc_on_close_cb on_close;
   void *user_data;
 };
 
@@ -98,7 +105,8 @@ rtcdc_parse_candidate_sdp(struct rtcdc_peer_connection *peer, const char *candid
 struct rtcdc_data_channel *
 rtcdc_create_data_channel(struct rtcdc_peer_connection *peer,
                           const char *label, const char *protocol,
-                          rtcdc_on_message_cb, void *user_data);
+                          rtcdc_on_open_cb, rtcdc_on_message_cb, rtcdc_on_close_cb,
+                          void *user_data);
 
 void
 rtcdc_destroy_data_channel(struct rtcdc_data_channel *channel);

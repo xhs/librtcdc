@@ -77,6 +77,10 @@ handle_rtcdc_open_ack(struct rtcdc_peer_connection *peer, uint16_t sid)
     struct rtcdc_data_channel *ch = peer->channels[i];
     if (ch && ch->sid == sid) {
       ch->state = RTCDC_CHANNEL_STATE_CONNECTED;
+
+      if (ch->on_open)
+        ch->on_open(ch, ch->user_data);
+
       break;
     }
   }

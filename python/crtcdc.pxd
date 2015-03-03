@@ -4,6 +4,11 @@
 
 ctypedef unsigned int uint16_t
 
+cdef struct python_callbacks:
+  void *on_open
+  void *on_message
+  void *on_close
+
 cdef extern from "rtcdc.h":
   cdef struct rtcdc_peer_connection:
     char *stun_server
@@ -13,13 +18,15 @@ cdef extern from "rtcdc.h":
     char *label
     char *protocol
     int state
+    void (*on_open)(rtcdc_data_channel *channel, void *user_data)
     void (*on_message)(rtcdc_data_channel *channel, \
-                       int datatype, void *data, size_t length, void *callback)
+                       int datatype, void *data, size_t length, void *user_data)
+    void (*on_close)(rtcdc_data_channel *channel, void *user_data)
     void *user_data
 
   rtcdc_peer_connection * \
-  rtcdc_create_peer_connection(void (*on_channel)(rtcdc_data_channel *, void *), \
-                               const char *stun_server, uint16_t port, void *callback)
+  rtcdc_create_peer_connection(void (*on_channel)(rtcdc_data_channel *, void *user_data), \
+                               const char *stun_server, uint16_t port, void *user_data)
 
   void \
   rtcdc_destroy_peer_connection(rtcdc_peer_connection *peer)
@@ -39,9 +46,11 @@ cdef extern from "rtcdc.h":
   rtcdc_data_channel * \
   rtcdc_create_data_channel(rtcdc_peer_connection *peer, \
                             const char *label, const char *protocol, \
+                            void (*on_open)(rtcdc_data_channel *channel, void *user_data), \
                             void (*on_message)(rtcdc_data_channel *channel, \
-                                               int datatype, void *data, size_t length, void *callback), \
-                            void *callback)
+                                               int datatype, void *data, size_t length, void *user_data), \
+                            void (*on_close)(rtcdc_data_channel *channel, void *user_data), \
+                            void *user_data)
 
   void \
   rtcdc_destroy_data_channel(rtcdc_data_channel *channel)

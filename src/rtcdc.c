@@ -200,7 +200,7 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
     return -1;
 
   if (peer->transport == NULL) {
-    if (create_rtcdc_transport(peer, 0) < 0)
+    if (create_rtcdc_transport(peer, remote_port) < 0)
       return -1;
   }
 
@@ -228,7 +228,10 @@ rtcdc_parse_candidate_sdp(struct rtcdc_peer_connection *peer, const char *candid
 struct rtcdc_data_channel *
 rtcdc_create_data_channel(struct rtcdc_peer_connection *peer,
                           const char *label, const char *protocol,
-                          rtcdc_on_message_cb on_message, void *user_data)
+                          rtcdc_on_open_cb on_open,
+                          rtcdc_on_message_cb on_message,
+                          rtcdc_on_close_cb on_close,
+                          void *user_data)
 {
   if (peer == NULL || peer->transport == NULL || peer->channels == NULL)
     return NULL;
@@ -249,7 +252,9 @@ rtcdc_create_data_channel(struct rtcdc_peer_connection *peer,
   struct rtcdc_data_channel *ch = (struct rtcdc_data_channel *)calloc(1, sizeof *ch);
   if (ch == NULL)
     return NULL;
+  ch->on_open = on_open;
   ch->on_message = on_message;
+  ch->on_close = on_close;
   ch->user_data = user_data;
   ch->sctp = sctp;
 
