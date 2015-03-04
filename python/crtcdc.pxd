@@ -13,6 +13,8 @@ cdef extern from "rtcdc.h":
   cdef struct rtcdc_peer_connection:
     char *stun_server
     uint16_t stun_port
+    void (*on_channel)(rtcdc_data_channel *channel, void *user_data)
+    void *user_data
 
   cdef struct rtcdc_data_channel:
     char *label

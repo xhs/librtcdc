@@ -5,14 +5,13 @@ import base64
 
 def on_channel(channel):
   print 'new channel %s created' %(channel.label)
-  channel.set_on_message(on_message)
+  channel.on_message = on_message
 
 def on_message(channel, datatype, data):
   print 'received data from channel %s: %s' %(channel.label, data)
+  channel.send_message(pyrtcdc.RTCDC_DATATYPE_STRING, 'hi')
 
 peer = pyrtcdc.PeerConnection(on_channel)
-
-print 'stun://%s:%d\n' %(peer.stun_server, peer.stun_port)
 
 offer = peer.generate_offer()
 print 'base64 encoded local offer sdp:\n%s\n' %(base64.b64encode(offer))

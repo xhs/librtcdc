@@ -6,6 +6,10 @@ cimport crtcdc
 from crtcdc cimport rtcdc_peer_connection, rtcdc_data_channel, python_callbacks
 from libc.stdlib cimport malloc, free
 
+RTCDC_DATATYPE_STRING = 0
+RTCDC_DATATYPE_BINARY = 1
+RTCDC_DATATYPE_EMPTY  = 2
+
 cdef void on_channel_callback(rtcdc_data_channel *channel, void *callback):
   cdef DataChannel dc
   if callback is not NULL:
@@ -114,13 +118,18 @@ cdef class PeerConnection:
   def loop(self):
     crtcdc.rtcdc_loop(self._peer)
 
+  def __setattr__(self, name, value):
+    if name is 'on_channel':
+      self._peer.on_channel = on_channel_callback
+      self._peer.user_data = <void *>value
+
 cdef class DataChannel:
   cdef rtcdc_data_channel *_channel
 
-  def send_message(self, int datatype, char *data, size_t length):
+  def send_message(self, int datatype, char *data):
     if self._channel is NULL:
       return -1
-    return crtcdc.rtcdc_send_message(self._channel, datatype, data, length)
+    return crtcdc.rtcdc_send_message(self._channel, datatype, data, len(data))
 
   @property
   def label(self):
@@ -130,26 +139,17 @@ cdef class DataChannel:
   def protocol(self):
     return self._channel.protocol
 
-  def set_on_open(self, on_open):
+  def __setattr__(self, name, value):
     cdef python_callbacks *callbacks
-    self._channel.on_open = on_open_callback
     if self._channel.user_data is NULL:
-      self._channel.user_data = <void *>init_callbacks()
+        self._channel.user_data = <void *>init_callbacks()
     callbacks = <python_callbacks *>self._channel.user_data
-    callbacks.on_open = <void *>on_open
-
-  def set_on_message(self, on_message):
-    cdef python_callbacks *callbacks
-    self._channel.on_message = on_message_callback
-    if self._channel.user_data is NULL:
-      self._channel.user_data = <void *>init_callbacks()
-    callbacks = <python_callbacks *>self._channel.user_data
-    callbacks.on_message = <void *>on_message
-
-  def set_on_close(self, on_close):
-    cdef python_callbacks *callbacks
-    self._channel.on_close = on_close_callback
-    if self._channel.user_data is NULL:
-      self._channel.user_data = <void *>init_callbacks()
-    callbacks = <python_callbacks *>self._channel.user_data
-    callbacks.on_close = <void *>on_close
+    if name is 'on_open':
+      self._channel.on_open = on_open_callback
+      callbacks.on_open = <void *>value
+    elif name is 'on_message':
+      self._channel.on_message = on_message_callback
+      callbacks.on_message = <void *>value
+    elif name is 'on_close':
+      self._channel.on_close = on_close_callback
+      callbacks.on_close = <void *>value
