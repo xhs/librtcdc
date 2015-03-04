@@ -3,9 +3,13 @@
 import pyrtcdc
 import base64
 
+def on_open(channel):
+  print 'channel %s opened' %(channel.label)
+
 def on_channel(channel):
   print 'new channel %s created' %(channel.label)
   channel.on_message = on_message
+  bazz = peer.create_data_channel('bazz', 'test', on_open=on_open)
 
 def on_message(channel, datatype, data):
   print 'received data from channel %s: %s' %(channel.label, data)
