@@ -103,6 +103,8 @@ cdef class PeerConnection:
     dc._channel = crtcdc.rtcdc_create_data_channel(self._peer, label, protocol, \
                                                    on_open_callback, on_message_callback, on_close_callback, \
                                                    <void *>callbacks)
+    if dc._channel is NULL:
+      raise MemoryError()
     return dc
 
   @property
