@@ -13,7 +13,7 @@ def on_channel(channel):
 
 def on_message(channel, datatype, data):
   print 'received data from channel %s: %s' %(channel.label, data)
-  channel.send_message(pyrtcdc.RTCDC_DATATYPE_STRING, 'hi')
+  channel.send_message(pyrtcdc.DATATYPE_STRING, 'hi')
 
 peer = pyrtcdc.PeerConnection(on_channel)
 

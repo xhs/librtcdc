@@ -6,9 +6,13 @@ cimport crtcdc
 from crtcdc cimport rtcdc_peer_connection, rtcdc_data_channel, python_callbacks
 from libc.stdlib cimport malloc, free
 
-RTCDC_DATATYPE_STRING = 0
-RTCDC_DATATYPE_BINARY = 1
-RTCDC_DATATYPE_EMPTY  = 2
+STATE_CLOSED     = 0
+STATE_CONNECTING = 1
+STATE_CONNECTED  = 2
+
+DATATYPE_STRING = 0
+DATATYPE_BINARY = 1
+DATATYPE_EMPTY  = 2
 
 cdef void on_channel_callback(rtcdc_data_channel *channel, void *callback):
   cdef DataChannel dc
