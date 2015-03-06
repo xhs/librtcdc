@@ -10,6 +10,8 @@
 #include "dcep.h"
 #include "rtcdc.h"
 
+static int g_sctp_ref = 0;
+
 static int interested_events[] = {
   //...
 };
@@ -81,9 +83,13 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
   } else
     sctp->stream_cursor = 1; // use odd streams
 
-  usrsctp_init(0, sctp_data_ready_cb, NULL);
+  if (g_sctp_ref == 0) {
+    usrsctp_init(0, sctp_data_ready_cb, NULL);
+    usrsctp_sysctl_set_sctp_ecn_enable(0);
+  }
+  g_sctp_ref++;
+
   usrsctp_register_address(sctp);
-  usrsctp_sysctl_set_sctp_ecn_enable(0);
   struct socket *s = usrsctp_socket(AF_CONN, SOCK_STREAM, IPPROTO_SCTP,
                                     sctp_data_received_cb, NULL, 0, peer);
   if (s == NULL)
@@ -174,7 +180,7 @@ destroy_sctp_transport(struct sctp_transport *sctp)
     return;
 
   usrsctp_close(sctp->sock);
-  usrsctp_finish();
+  usrsctp_deregister_address(sctp);
   BIO_free_all(sctp->incoming_bio);
   BIO_free_all(sctp->outgoing_bio);
 #ifdef DEBUG_SCTP
@@ -184,6 +190,15 @@ destroy_sctp_transport(struct sctp_transport *sctp)
   g_async_queue_unref(sctp->deferred_messages);
   free(sctp);
   sctp = NULL;
+
+  g_sctp_ref--;
+  if (g_sctp_ref == 0) {
+    for (int i = 0; i < 300; ++i) {
+      if (usrsctp_finish() == 0)
+        return;
+      g_usleep(10000);
+    }
+  }
 }
 
 gpointer
@@ -196,19 +211,19 @@ sctp_thread(gpointer user_data)
   struct sctp_transport *sctp = transport->sctp;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(2000);
+    g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !dtls->handshake_done)
-    g_usleep(2000);
+    g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
 
   char buf[BUFFER_SIZE];
   while (!peer->exit_thread) {
     if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0)
-      g_usleep(2000);
+      g_usleep(2500);
 
     if (BIO_ctrl_pending(sctp->incoming_bio) > 0) {
       g_mutex_lock(&sctp->sctp_mutex);
@@ -250,12 +265,12 @@ sctp_startup_thread(gpointer user_data)
   struct sctp_transport *sctp = transport->sctp;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(2000);
+    g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !dtls->handshake_done)
-    g_usleep(2000);
+    g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
 
