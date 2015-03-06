@@ -140,6 +140,12 @@ rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer)
   if (peer == NULL)
     return;
 
+  if (peer->transport) {
+    g_main_loop_quit(peer->transport->ice->loop);
+    g_usleep(100000);
+    destroy_rtcdc_transport(peer->transport);
+  }
+
   if (peer->stun_server)
     free(peer->stun_server);
 
@@ -148,8 +154,6 @@ rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer)
       rtcdc_destroy_data_channel(peer->channels[i]);
     }
   }
-  if (peer->transport)
-    destroy_rtcdc_transport(peer->transport);
 
   free(peer);
   peer = NULL;
