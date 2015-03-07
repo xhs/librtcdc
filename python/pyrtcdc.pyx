@@ -85,6 +85,10 @@ cdef class PeerConnection:
     if self._peer is not NULL:
       crtcdc.rtcdc_destroy_peer_connection(self._peer)
 
+  def destroy(self):
+    if self._peer is not NULL:
+      crtcdc.rtcdc_destroy_peer_connection(self._peer)
+
   def generate_offer(self):
     return crtcdc.rtcdc_generate_offer_sdp(self._peer)
 
