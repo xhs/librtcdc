@@ -1,6 +1,6 @@
 # Makefile
 # Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
-# This file is licensed under a GNU GPLv3 license.
+# This file is licensed under a BSD license.
 
 CC=gcc
 CFLAGS=-g -O2 -DINET -DINET6 -DDEBUG_SCTP -Wno-deprecated `pkg-config --cflags openssl nice`

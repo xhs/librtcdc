@@ -1,6 +1,6 @@
 // util.h
 // Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
-// This file is licensed under a GNU GPLv3 license.
+// This file is licensed under a BSD license.
 
 #ifndef _RTCDC_UTIL_H_
 #define _RTCDC_UTIL_H_
