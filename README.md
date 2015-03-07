@@ -12,7 +12,7 @@ SCTP - [usrsctp](https://sctp-refimpl.googlecode.com/svn/trunk/KERN/usrsctp/)
 
 #### Python demo
 
-```
+```python
 import pyrtcdc
 from pyrtcdc import PeerConnection
 
