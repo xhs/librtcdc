@@ -1,6 +1,6 @@
 # pyrtcdc.pyx
 # Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
-# This file is licensed under a GNU GPLv3 license.
+# This file is licensed under a BSD license.
 
 cimport crtcdc
 from crtcdc cimport rtcdc_peer_connection, rtcdc_data_channel, python_callbacks

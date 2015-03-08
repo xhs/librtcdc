@@ -1,6 +1,6 @@
 # setup.py
 # Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
-# This file is licensed under a GNU GPLv3 license.
+# This file is licensed under a BSD license.
 
 from distutils.core import setup
 from distutils.extension import Extension
