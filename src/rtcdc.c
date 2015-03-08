@@ -180,10 +180,7 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
     return -1;
 
   char **lines;
-  if (g_strstr_len("\r\n", strlen(offer), offer) == NULL)
-    lines = g_strsplit(offer, "\n", 0);
-  else
-    lines = g_strsplit(offer, "\r\n", 0);
+  lines = g_strsplit(offer, "\r\n", 0);
 
   char buf[BUFFER_SIZE];
   memset(buf, 0, sizeof buf);
@@ -200,7 +197,7 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
   }
   g_strfreev(lines);
 
-  if (remote_port < 0)
+  if (remote_port <= 0)
     return -1;
 
   if (peer->transport == NULL) {

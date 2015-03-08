@@ -39,7 +39,6 @@ struct dtls_transport;
 struct sctp_transport;
 struct rtcdc_data_channel;
 
-
 typedef void (*rtcdc_on_open_cb)(struct rtcdc_data_channel *channel, void *user_data);
 
 typedef void (*rtcdc_on_message_cb)(struct rtcdc_data_channel *channel,

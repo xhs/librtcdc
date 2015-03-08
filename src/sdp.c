@@ -104,10 +104,7 @@ parse_remote_candidate_sdp(struct ice_transport *ice, const char *candidates)
     return -1;
 
   char **lines;
-  if (g_strstr_len("\r\n", strlen(candidates), candidates) == NULL)
-    lines = g_strsplit(candidates, "\n", 0);
-  else
-    lines = g_strsplit(candidates, "\r\n", 0);
+  lines = g_strsplit(candidates, "\r\n", 0);
 
   GSList *list = NULL;
   for (int i = 0; lines && lines[i]; ++i) {
