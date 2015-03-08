@@ -269,10 +269,18 @@ sctp_startup_thread(gpointer user_data)
   if (peer->exit_thread)
     return NULL;
 
+#ifdef DEBUG_SCTP
+  fprintf(stderr, "ICE negotiation done\n");
+#endif
+
   while (!peer->exit_thread && !dtls->handshake_done)
     g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
+
+#ifdef DEBUG_SCTP
+  fprintf(stderr, "DTLS handshake done\n");
+#endif
 
   if (transport->role == RTCDC_PEER_ROLE_CLIENT) {
     struct sockaddr_conn sconn;

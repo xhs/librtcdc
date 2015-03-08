@@ -153,20 +153,17 @@ ice_thread(gpointer user_data)
   struct dtls_transport *dtls = transport->dtls;
 
   while (!peer->exit_thread && !ice->gathering_done)
-    g_usleep(2000);
+    g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(2000);
+    g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
 
-  if (transport->role == RTCDC_PEER_ROLE_CLIENT) {
-    // ugly
-    g_usleep(500000);
+  if (transport->role == RTCDC_PEER_ROLE_CLIENT)
     SSL_do_handshake(dtls->ssl);
-  }
 
   // need a external thread to start SCTP when DTLS handshake is done
   char buf[BUFFER_SIZE];
@@ -179,14 +176,17 @@ ice_thread(gpointer user_data)
       if (nbytes > 0) {
         nice_agent_send(ice->agent, ice->stream_id, 1, nbytes, buf);
       }
-
-      if (!dtls->handshake_done) {
-        g_mutex_lock(&dtls->dtls_mutex);
-        SSL_do_handshake(dtls->ssl);
-        g_mutex_unlock(&dtls->dtls_mutex);
-      }
     } else {
-      g_usleep(2000);
+      g_usleep(2500);
+    }
+
+    if (!dtls->handshake_done) {
+      g_mutex_lock(&dtls->dtls_mutex);
+      SSL_do_handshake(dtls->ssl);
+      g_mutex_unlock(&dtls->dtls_mutex);
+
+      if (SSL_is_init_finished(dtls->ssl))
+        dtls->handshake_done = TRUE;
     }
   }
 
