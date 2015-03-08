@@ -3,13 +3,9 @@
 import pyrtcdc
 import base64
 
-def on_open(channel):
-  print 'channel %s opened' %(channel.label)
-
 def on_channel(channel):
   print 'new channel %s created' %(channel.label)
   channel.on_message = on_message
-  bazz = peer.create_data_channel('bazz', 'test', on_open=on_open)
 
 def on_message(channel, datatype, data):
   print 'received data from channel %s: %s' %(channel.label, data)
@@ -19,6 +15,9 @@ peer = pyrtcdc.PeerConnection(on_channel)
 
 offer = peer.generate_offer()
 print 'base64 encoded local offer sdp:\n%s\n' %(base64.b64encode(offer))
+
+import time
+time.sleep(5)
 
 cand = peer.generate_candidates()
 print 'local candidate sdp:\n%s' %(cand)
