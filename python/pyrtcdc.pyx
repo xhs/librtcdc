@@ -158,11 +158,6 @@ cdef class PeerConnection:
     crtcdc.rtcdc_loop(self._peer)
 
   def __setattr__(self, name, value):
-    if name is 'on_channel':
-      self._peer.on_channel = on_channel_callback
-      self._peer.user_data = <void *>value
-
-  def __setattr__(self, name, value):
     cdef peer_callbacks *callbacks
     if self._peer.user_data is NULL:
         self._peer.user_data = <void *>init_peer_callbacks()
