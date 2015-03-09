@@ -4,7 +4,11 @@
 
 ctypedef unsigned int uint16_t
 
-cdef struct python_callbacks:
+cdef struct peer_callbacks:
+  void *on_channel
+  void *on_candidate
+
+cdef struct channel_callbacks:
   void *on_open
   void *on_message
   void *on_close
@@ -14,6 +18,7 @@ cdef extern from "rtcdc.h":
     char *stun_server
     uint16_t stun_port
     void (*on_channel)(rtcdc_data_channel *channel, void *user_data)
+    void (*on_candidate)(const char *candidate, void *user_data)
     void *user_data
 
   cdef struct rtcdc_data_channel:
@@ -28,6 +33,7 @@ cdef extern from "rtcdc.h":
 
   rtcdc_peer_connection * \
   rtcdc_create_peer_connection(void (*on_channel)(rtcdc_data_channel *, void *user_data), \
+                               void (*on_candidate)(const char *candidate, void *user_data), \
                                const char *stun_server, uint16_t port, void *user_data)
 
   void \
@@ -38,9 +44,6 @@ cdef extern from "rtcdc.h":
 
   int \
   rtcdc_parse_offer_sdp(rtcdc_peer_connection *peer, const char *offer)
-
-  char * \
-  rtcdc_generate_candidate_sdp(rtcdc_peer_connection *peer)
 
   int \
   rtcdc_parse_candidate_sdp(rtcdc_peer_connection *peer, const char *candidates)

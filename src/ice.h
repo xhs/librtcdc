@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#include <agent.h>
+#include <nice/agent.h>
 
 struct rtcdc_peer_connection;
 

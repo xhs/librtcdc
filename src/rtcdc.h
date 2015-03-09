@@ -48,6 +48,8 @@ typedef void (*rtcdc_on_close_cb)(struct rtcdc_data_channel *channel, void *user
 
 typedef void (*rtcdc_on_channel_cb)(struct rtcdc_data_channel *channel, void *user_data);
 
+typedef void (*rtcdc_on_candidate_cb)(const char *candidate, void *user_data);
+
 struct rtcdc_data_channel {
   uint8_t type;
   uint16_t priority;
@@ -79,11 +81,13 @@ struct rtcdc_peer_connection {
   struct rtcdc_transport *transport;
   struct rtcdc_data_channel *channels[RTCDC_MAX_CHANNEL_NUM];
   rtcdc_on_channel_cb on_channel;
+  rtcdc_on_candidate_cb on_candidate;
   void *user_data;
 };
 
 struct rtcdc_peer_connection *
-rtcdc_create_peer_connection(rtcdc_on_channel_cb, const char *stun_server, uint16_t stun_port,
+rtcdc_create_peer_connection(rtcdc_on_channel_cb, rtcdc_on_candidate_cb,
+                             const char *stun_server, uint16_t stun_port,
                              void *user_data);
 
 void
@@ -94,9 +98,6 @@ rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer);
 
 int
 rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer);
-
-char *
-rtcdc_generate_candidate_sdp(struct rtcdc_peer_connection *peer);
 
 int
 rtcdc_parse_candidate_sdp(struct rtcdc_peer_connection *peer, const char *candidates);

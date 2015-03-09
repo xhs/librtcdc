@@ -103,7 +103,9 @@ destroy_rtcdc_transport(struct rtcdc_transport *transport)
 }
 
 struct rtcdc_peer_connection *
-rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel, const char *stun_server, uint16_t stun_port,
+rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel,
+                             rtcdc_on_candidate_cb on_candidate,
+                             const char *stun_server, uint16_t stun_port,
                              void *user_data)
 {
   char buf[INET_ADDRSTRLEN];
@@ -129,6 +131,7 @@ rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel, const char *stun_se
     peer->stun_server = strdup(buf);
   peer->stun_port = stun_port > 0 ? stun_port : 3478;
   peer->on_channel = on_channel;
+  peer->on_candidate = on_candidate;
   peer->user_data = user_data;
 
   return peer;
@@ -206,15 +209,6 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
   }
 
   return parse_remote_sdp(peer->transport->ice, buf);
-}
-
-char *
-rtcdc_generate_candidate_sdp(struct rtcdc_peer_connection *peer)
-{
-  if (peer == NULL || peer->transport == NULL)
-    return NULL;
-
-  return generate_local_candidate_sdp(peer->transport->ice);
 }
 
 int

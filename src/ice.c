@@ -28,12 +28,32 @@ component_state_changed_cb(NiceAgent *agent, guint stream_id,
   struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
   struct rtcdc_transport *transport = peer->transport;
   struct ice_transport *ice = transport->ice;
-  if (state == NICE_COMPONENT_STATE_READY) {
-    ice->negotiation_done = TRUE;
-  } else if (state == NICE_COMPONENT_STATE_FAILED) {
+  if (state == NICE_COMPONENT_STATE_FAILED) {
     g_main_loop_quit(ice->loop);
     peer->exit_thread = TRUE;
   }
+}
+
+static void
+new_local_candidate_cb(NiceAgent *agent, NiceCandidate *candidate, gpointer user_data)
+{
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  if (peer->on_candidate) {
+    gchar *cand = nice_agent_generate_local_candidate_sdp(agent, candidate);
+    peer->on_candidate(cand, peer->user_data);
+    g_free(cand);
+  }
+}
+
+static void
+new_selected_pair_cb(NiceAgent *agent, guint stream_id, guint component_id,
+                     NiceCandidate *lcandidate, NiceCandidate *rcandidate,
+                     gpointer user_data)
+{
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_transport *transport = peer->transport;
+  struct ice_transport *ice = transport->ice;
+  ice->negotiation_done = TRUE;
 }
 
 static void
@@ -106,6 +126,10 @@ create_ice_transport(struct rtcdc_peer_connection *peer,
     G_CALLBACK(candidate_gathering_done_cb), peer);
   g_signal_connect(G_OBJECT(agent), "component-state-changed",
     G_CALLBACK(component_state_changed_cb), peer);
+  g_signal_connect(G_OBJECT(agent), "new-candidate-full",
+    G_CALLBACK(new_local_candidate_cb), peer);
+  g_signal_connect(G_OBJECT(agent), "new-selected-pair-full",
+    G_CALLBACK(new_selected_pair_cb), peer);
 
   guint stream_id = nice_agent_add_stream(agent, 1);
   if (stream_id == 0)

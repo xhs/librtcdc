@@ -7,11 +7,14 @@ def on_channel(channel):
   print 'new channel %s created' %(channel.label)
   channel.on_message = on_message
 
+def on_candidate(candidate):
+  print 'local candidate sdp:\n%s' %(candidate)
+
 def on_message(channel, datatype, data):
   print 'received data from channel %s: %s' %(channel.label, data)
   channel.send_message(pyrtcdc.DATATYPE_STRING, 'hi')
 
-peer = pyrtcdc.PeerConnection(on_channel)
+peer = pyrtcdc.PeerConnection(on_channel, on_candidate, stun_server='stun.services.mozilla.com')
 
 print 'enter base64 encoded remote offer sdp:'
 while True:
@@ -27,9 +30,6 @@ while True:
 
 offer = peer.generate_offer()
 print 'base64 encoded local offer sdp:\n%s\n' %(base64.b64encode(offer))
-
-cand = peer.generate_candidates()
-print 'local candidate sdp:\n%s' %(cand)
 
 print 'enter remote candidate sdp:'
 while True:
