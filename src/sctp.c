@@ -136,6 +136,12 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
   // send abort when close
   usrsctp_setsockopt(s, SOL_SOCKET, SO_LINGER, &lopt, sizeof lopt);
 
+  struct sctp_paddrparams peer_param;
+  memset(&peer_param, 0, sizeof peer_param);
+  peer_param.spp_flags = SPP_PMTUD_DISABLE;
+  peer_param.spp_pathmtu = 1200;
+  usrsctp_setsockopt(s, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS, &peer_param, sizeof peer_param);
+
   struct sctp_assoc_value av;
   av.assoc_id = SCTP_ALL_ASSOC;
   av.assoc_value = 1;
