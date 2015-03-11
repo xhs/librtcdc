@@ -1,12 +1,11 @@
-## librtcdc is a tiny WebRTC DataChannel implementation that works everywhere (Alpha).
+## librtcdc is a tiny WebRTC DataChannel implementation that works everywhere (Beta).
 
 #### Features
 
-* Tiny <2k LOC, thus easy to understand/extend
+* Tiny <2k LOC, easy to understand/bind/extend
 * Talks with each other, Chrome(39/40), Firefox?, Opera?
 * 'Official' Python binding
 * Lack of docs
-* Buggy (Aaaaaaaah, help!)
 
 #### Prerequisites
 
@@ -49,4 +48,4 @@ peer.loop()
 
 #### License
 
-BSD
+BSD 2-Clause
