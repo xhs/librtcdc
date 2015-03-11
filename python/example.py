@@ -27,6 +27,8 @@ while True:
 
   res = peer.parse_offer(roffer)
   if res >= 0:
+    offer = peer.generate_offer()
+    print 'new base64 encoded local offer sdp:\n%s\n' %(base64.b64encode(offer))
     break
   print 'invalid remote offer sdp'
   print 'enter base64 encoded remote offer sdp:'

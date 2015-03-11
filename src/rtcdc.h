@@ -67,7 +67,6 @@ struct rtcdc_data_channel {
 };
 
 struct rtcdc_transport {
-  int role;
   struct dtls_context *ctx;
   struct ice_transport *ice;
   struct dtls_transport *dtls;
@@ -79,6 +78,7 @@ struct rtcdc_peer_connection {
   uint16_t stun_port;
   int exit_thread;
   struct rtcdc_transport *transport;
+  int role;
   struct rtcdc_data_channel *channels[RTCDC_MAX_CHANNEL_NUM];
   rtcdc_on_channel_cb on_channel;
   rtcdc_on_candidate_cb on_candidate;

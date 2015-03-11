@@ -62,7 +62,7 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
 }
 
 struct sctp_transport *
-create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
+create_sctp_transport(struct rtcdc_peer_connection *peer)
 {
   if (peer == NULL || peer->transport == NULL)
     return NULL;
@@ -71,17 +71,7 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
   if (sctp == NULL)
     return NULL;
   peer->transport->sctp = sctp;
-
-  if (lport > 0)
-    sctp->local_port = lport;
-  else
-    sctp->local_port = random_integer(10000, 60000);
-
-  if (rport > 0) {
-    sctp->remote_port = rport;
-    sctp->stream_cursor = 0; // use even streams
-  } else
-    sctp->stream_cursor = 1; // use odd streams
+  sctp->local_port = random_integer(10000, 60000);
 
   if (g_sctp_ref == 0) {
     usrsctp_init(0, sctp_data_ready_cb, NULL);
@@ -133,7 +123,6 @@ create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport)
   struct linger lopt;
   lopt.l_onoff = 1;
   lopt.l_linger = 0;
-  // send abort when close
   usrsctp_setsockopt(s, SOL_SOCKET, SO_LINGER, &lopt, sizeof lopt);
 
   struct sctp_paddrparams peer_param;
@@ -255,82 +244,6 @@ sctp_thread(gpointer user_data)
         SSL_write(dtls->ssl, buf, nbytes);
         g_mutex_unlock(&dtls->dtls_mutex);
       }
-    }
-  }
-
-  return NULL;
-}
-
-gpointer
-sctp_startup_thread(gpointer user_data)
-{
-  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
-  struct rtcdc_transport *transport = peer->transport;
-  struct ice_transport *ice = transport->ice;
-  struct dtls_transport *dtls = transport->dtls;
-  struct sctp_transport *sctp = transport->sctp;
-
-  while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(2500);
-  if (peer->exit_thread)
-    return NULL;
-
-#ifdef DEBUG_SCTP
-  fprintf(stderr, "ICE negotiation done\n");
-#endif
-
-  while (!peer->exit_thread && !dtls->handshake_done)
-    g_usleep(2500);
-  if (peer->exit_thread)
-    return NULL;
-
-#ifdef DEBUG_SCTP
-  fprintf(stderr, "DTLS handshake done\n");
-#endif
-
-  if (transport->role == RTCDC_PEER_ROLE_CLIENT) {
-    struct sockaddr_conn sconn;
-    memset(&sconn, 0, sizeof sconn);
-    sconn.sconn_family = AF_CONN;
-    sconn.sconn_port = htons(sctp->remote_port);
-    sconn.sconn_addr = (void *)sctp;
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-    sconn.sconn_len = sizeof *sctp;
-#endif
-    if (usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn) < 0) {
-#ifdef DEBUG_SCTP
-      fprintf(stderr, "SCTP connection failed\n");
-#endif
-    } else {
-#ifdef DEBUG_SCTP
-      fprintf(stderr, "SCTP connected\n");
-#endif
-      sctp->handshake_done = TRUE;
-    }
-  } else {
-    struct sockaddr_conn sconn;
-    memset(&sconn, 0, sizeof sconn);
-    sconn.sconn_family = AF_CONN;
-    sconn.sconn_port = htons(sctp->local_port);
-    sconn.sconn_addr = (void *)sctp;
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-    sconn.sconn_len = sizeof *sctp;
-#endif
-    usrsctp_listen(sctp->sock, 1);
-    socklen_t len = sizeof sconn;
-    struct socket *s = usrsctp_accept(sctp->sock, (struct sockaddr *)&sconn, &len);
-    if (s) {
-#ifdef DEBUG_SCTP
-    fprintf(stderr, "SCTP accepted\n");
-#endif
-      sctp->handshake_done = TRUE;
-      struct socket *t = sctp->sock;
-      sctp->sock = s;
-      usrsctp_close(t);
-    } else {
-#ifdef DEBUG_SCTP
-    fprintf(stderr, "SCTP acception failed\n");
-#endif
     }
   }
 

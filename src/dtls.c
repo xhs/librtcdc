@@ -52,7 +52,7 @@ gen_cert(EVP_PKEY* pkey, const char *common, int days) {
       !BN_to_ASN1_INTEGER(serial_number, asn1_serial_number))
     goto cert_err;
 
-  if (!X509_set_version(x509, 0L))  // version 1
+  if (!X509_set_version(x509, 0L)) // version 1
     goto cert_err;
 
   if ((name = X509_NAME_new()) == NULL ||
@@ -159,7 +159,7 @@ destroy_dtls_context(struct dtls_context *context)
 
 struct dtls_transport *
 create_dtls_transport(struct rtcdc_peer_connection *peer,
-                      const struct dtls_context *context, int client)
+                      const struct dtls_context *context)
 {
   if (peer == NULL || peer->transport == NULL || context == NULL || context->ctx == NULL)
     return NULL;
@@ -192,11 +192,6 @@ create_dtls_transport(struct rtcdc_peer_connection *peer,
   SSL_set_options(dtls->ssl, SSL_OP_SINGLE_ECDH_USE);
   SSL_set_tmp_ecdh(dtls->ssl, ecdh);
   EC_KEY_free(ecdh);
-
-  if (client == 1)
-    SSL_set_connect_state(dtls->ssl);
-  else
-    SSL_set_accept_state(dtls->ssl);
 
   if (0) {
 trans_err:

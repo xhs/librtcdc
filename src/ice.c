@@ -25,13 +25,7 @@ static void
 component_state_changed_cb(NiceAgent *agent, guint stream_id, 
   guint component_id, guint state, gpointer user_data)
 {
-  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
-  struct rtcdc_transport *transport = peer->transport;
-  struct ice_transport *ice = transport->ice;
-  if (state == NICE_COMPONENT_STATE_FAILED) {
-    g_main_loop_quit(ice->loop);
-    peer->exit_thread = TRUE;
-  }
+  //...
 }
 
 static void
@@ -92,8 +86,7 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
 
 struct ice_transport *
 create_ice_transport(struct rtcdc_peer_connection *peer,
-                     const char *stun_server, uint16_t stun_port,
-                     int controlling)
+                     const char *stun_server, uint16_t stun_port)
 {
   if (peer == NULL || peer->transport == NULL)
     return NULL;
@@ -116,7 +109,8 @@ create_ice_transport(struct rtcdc_peer_connection *peer,
     goto trans_err;
   ice->agent = agent;
 
-  g_object_set(G_OBJECT(agent), "controlling-mode", controlling, NULL);
+  // change the role automatically when detecting role conflict
+  g_object_set(G_OBJECT(agent), "controlling-mode", 1, NULL);
   if (stun_server != NULL && strcmp(stun_server, "") != 0)
     g_object_set(G_OBJECT(agent), "stun-server", stun_server, NULL);
   if (stun_port > 0)
@@ -185,9 +179,6 @@ ice_thread(gpointer user_data)
     g_usleep(2500);
   if (peer->exit_thread)
     return NULL;
-
-  if (transport->role == RTCDC_PEER_ROLE_CLIENT)
-    SSL_do_handshake(dtls->ssl);
 
   // need a external thread to start SCTP when DTLS handshake is done
   char buf[BUFFER_SIZE];

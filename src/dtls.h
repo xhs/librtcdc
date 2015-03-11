@@ -38,7 +38,7 @@ destroy_dtls_context(struct dtls_context *context);
 
 struct dtls_transport *
 create_dtls_transport(struct rtcdc_peer_connection *peer,
-                      const struct dtls_context *context, int client);
+                      const struct dtls_context *context);
 
 void
 destroy_dtls_transport(struct dtls_transport *dtls);

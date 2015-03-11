@@ -40,7 +40,7 @@ struct sctp_transport {
 };
 
 struct sctp_transport *
-create_sctp_transport(struct rtcdc_peer_connection *peer, int lport, int rport);
+create_sctp_transport(struct rtcdc_peer_connection *peer);
 
 void
 destroy_sctp_transport(struct sctp_transport *sctp);
@@ -51,9 +51,6 @@ send_sctp_message(struct sctp_transport *sctp,
 
 gpointer
 sctp_thread(gpointer peer);
-
-gpointer
-sctp_startup_thread(gpointer peer);
 
 #ifdef  __cplusplus
 }

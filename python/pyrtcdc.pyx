@@ -112,13 +112,12 @@ cdef class PeerConnection:
       raise MemoryError()
 
   def __dealloc__(self):
-    if self._peer is not NULL:
-      if self._peer.user_data is not NULL:
-        free(self._peer.user_data)
-      crtcdc.rtcdc_destroy_peer_connection(self._peer)
+    self.destroy()
 
   def destroy(self):
     if self._peer is not NULL:
+      if self._peer.user_data is not NULL:
+        free(self._peer.user_data)
       crtcdc.rtcdc_destroy_peer_connection(self._peer)
 
   def generate_offer(self):
