@@ -99,6 +99,7 @@ destroy_rtcdc_transport(struct rtcdc_transport *transport)
 struct rtcdc_peer_connection *
 rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel,
                              rtcdc_on_candidate_cb on_candidate,
+                             rtcdc_on_connect_cb on_connect,
                              const char *stun_server, uint16_t stun_port,
                              void *user_data)
 {
@@ -126,6 +127,7 @@ rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel,
   peer->stun_port = stun_port > 0 ? stun_port : 3478;
   peer->on_channel = on_channel;
   peer->on_candidate = on_candidate;
+  peer->on_connect = on_connect;
   peer->user_data = user_data;
 
   return peer;
@@ -385,6 +387,9 @@ startup_thread(gpointer user_data)
       fprintf(stderr, "SCTP connected\n");
 #endif
       sctp->handshake_done = TRUE;
+
+      if (peer->on_connect)
+        peer->on_connect(peer->user_data);
     }
   } else {
     sctp->stream_cursor = 1; // use odd streams
@@ -401,15 +406,18 @@ startup_thread(gpointer user_data)
     struct socket *s = usrsctp_accept(sctp->sock, (struct sockaddr *)&sconn, &len);
     if (s) {
 #ifdef DEBUG_SCTP
-    fprintf(stderr, "SCTP accepted\n");
+      fprintf(stderr, "SCTP accepted\n");
 #endif
       sctp->handshake_done = TRUE;
       struct socket *t = sctp->sock;
       sctp->sock = s;
       usrsctp_close(t);
+
+      if (peer->on_connect)
+        peer->on_connect(peer->user_data);
     } else {
 #ifdef DEBUG_SCTP
-    fprintf(stderr, "SCTP acception failed\n");
+      fprintf(stderr, "SCTP acception failed\n");
 #endif
     }
   }

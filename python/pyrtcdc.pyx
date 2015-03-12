@@ -36,6 +36,15 @@ cdef void on_candidate_callback(const char *candidate, void *user_data):
       if on_candidate:
         on_candidate(candidate)
 
+cdef void on_connect_callback(void *user_data):
+  cdef peer_callbacks *callbacks
+  callbacks = <peer_callbacks *>user_data
+  if callbacks is not NULL:
+    if callbacks.on_connect is not NULL:
+      on_connect = <object>callbacks.on_connect
+      if on_connect:
+        on_connect()
+
 cdef void on_open_callback(rtcdc_data_channel *channel, void *user_data):
   cdef DataChannel dc
   cdef channel_callbacks *callbacks
@@ -81,6 +90,7 @@ cdef peer_callbacks *init_peer_callbacks():
     raise MemoryError()
   callbacks.on_channel = NULL
   callbacks.on_candidate = NULL
+  callbacks.on_connect = NULL
   return callbacks
 
 cdef channel_callbacks *init_channel_callbacks():
@@ -96,17 +106,21 @@ cdef channel_callbacks *init_channel_callbacks():
 cdef class PeerConnection:
   cdef rtcdc_peer_connection *_peer
 
-  def __cinit__(self, on_channel=None, on_candidate=None, stun_server='', stun_port=0):
+  def __cinit__(self, on_channel=None, on_candidate=None, on_connect=None, stun_server='', stun_port=0):
     cdef peer_callbacks *callbacks
     callbacks = init_peer_callbacks()
     if on_channel:
       callbacks.on_channel = <void *>on_channel
     if on_candidate:
       callbacks.on_candidate = <void *>on_candidate
+    if on_connect:
+      callbacks.on_connect = <void *>on_connect
     if stun_server is None:
       stun_server = ''
 
-    self._peer = crtcdc.rtcdc_create_peer_connection(on_channel_callback, on_candidate_callback, \
+    self._peer = crtcdc.rtcdc_create_peer_connection(on_channel_callback, \
+                                                     on_candidate_callback, \
+                                                     on_connect_callback, \
                                                      stun_server, stun_port, <void *>callbacks)
     if not self._peer:
       raise MemoryError()
@@ -167,6 +181,9 @@ cdef class PeerConnection:
     elif name is 'on_candidate':
       self._peer.on_candidate = on_candidate_callback
       callbacks.on_candidate = <void *>value
+    elif name is 'on_connect':
+      self._peer.on_connect = on_connect_callback
+      callbacks.on_connect = <void *>value
 
 cdef class DataChannel:
   cdef rtcdc_data_channel *_channel
