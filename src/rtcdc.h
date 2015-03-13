@@ -46,11 +46,13 @@ typedef void (*rtcdc_on_message_cb)(struct rtcdc_data_channel *channel,
 
 typedef void (*rtcdc_on_close_cb)(struct rtcdc_data_channel *channel, void *user_data);
 
-typedef void (*rtcdc_on_channel_cb)(struct rtcdc_data_channel *channel, void *user_data);
+typedef void (*rtcdc_on_channel_cb)(struct rtcdc_peer_connection *peer,
+                                    struct rtcdc_data_channel *channel, void *user_data);
 
-typedef void (*rtcdc_on_candidate_cb)(const char *candidate, void *user_data);
+typedef void (*rtcdc_on_candidate_cb)(struct rtcdc_peer_connection *peer,
+                                      const char *candidate, void *user_data);
 
-typedef void (*rtcdc_on_connect_cb)(void *user_data);
+typedef void (*rtcdc_on_connect_cb)(struct rtcdc_peer_connection *peer, void *user_data);
 
 struct rtcdc_data_channel {
   uint8_t type;

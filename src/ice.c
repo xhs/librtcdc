@@ -34,7 +34,7 @@ new_local_candidate_cb(NiceAgent *agent, NiceCandidate *candidate, gpointer user
   struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
   if (peer->on_candidate) {
     gchar *cand = nice_agent_generate_local_candidate_sdp(agent, candidate);
-    peer->on_candidate(cand, peer->user_data);
+    peer->on_candidate(peer, cand, peer->user_data);
     g_free(cand);
   }
 }

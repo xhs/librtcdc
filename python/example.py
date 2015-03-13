@@ -3,11 +3,11 @@
 import pyrtcdc
 import base64
 
-def on_channel(channel):
+def on_channel(peer, channel):
   print 'new channel %s created' %(channel.label)
   channel.on_message = on_message
 
-def on_candidate(candidate):
+def on_candidate(peer, candidate):
   print 'local candidate sdp:\n%s' %(candidate)
 
 def on_message(channel, datatype, data):

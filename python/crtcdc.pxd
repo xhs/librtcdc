@@ -18,9 +18,9 @@ cdef extern from "rtcdc.h":
   cdef struct rtcdc_peer_connection:
     char *stun_server
     uint16_t stun_port
-    void (*on_channel)(rtcdc_data_channel *channel, void *user_data)
-    void (*on_candidate)(const char *candidate, void *user_data)
-    void (*on_connect)(void *user_data)
+    void (*on_channel)(rtcdc_peer_connection *peer, rtcdc_data_channel *channel, void *user_data)
+    void (*on_candidate)(rtcdc_peer_connection *peer, const char *candidate, void *user_data)
+    void (*on_connect)(rtcdc_peer_connection *peer, void *user_data)
     void *user_data
 
   cdef struct rtcdc_data_channel:
@@ -34,9 +34,9 @@ cdef extern from "rtcdc.h":
     void *user_data
 
   rtcdc_peer_connection * \
-  rtcdc_create_peer_connection(void (*on_channel)(rtcdc_data_channel *, void *user_data), \
-                               void (*on_candidate)(const char *candidate, void *user_data), \
-                               void (*on_connect)(void *user_data), \
+  rtcdc_create_peer_connection(void (*on_channel)(rtcdc_peer_connection *peer, rtcdc_data_channel *, void *user_data), \
+                               void (*on_candidate)(rtcdc_peer_connection *peer, const char *candidate, void *user_data), \
+                               void (*on_connect)(rtcdc_peer_connection *peer, void *user_data), \
                                const char *stun_server, uint16_t port, void *user_data)
 
   void \

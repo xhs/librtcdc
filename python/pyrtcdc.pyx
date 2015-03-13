@@ -15,7 +15,8 @@ DATATYPE_STRING = 0
 DATATYPE_BINARY = 1
 DATATYPE_EMPTY  = 2
 
-cdef void on_channel_callback(rtcdc_data_channel *channel, void *user_data):
+cdef void on_channel_callback(rtcdc_peer_connection *peer, rtcdc_data_channel *channel, void *user_data):
+  cdef PeerConnectionBase pc
   cdef DataChannel dc
   cdef peer_callbacks *callbacks
   callbacks = <peer_callbacks *>user_data
@@ -25,25 +26,33 @@ cdef void on_channel_callback(rtcdc_data_channel *channel, void *user_data):
       if on_channel:
         dc = DataChannel()
         dc._channel = channel
-        on_channel(dc)
+        pc = PeerConnectionBase()
+        pc._peer = peer
+        on_channel(pc, dc)
 
-cdef void on_candidate_callback(const char *candidate, void *user_data):
+cdef void on_candidate_callback(rtcdc_peer_connection *peer, const char *candidate, void *user_data):
+  cdef PeerConnectionBase pc
   cdef peer_callbacks *callbacks
   callbacks = <peer_callbacks *>user_data
   if callbacks is not NULL:
     if callbacks.on_candidate is not NULL:
       on_candidate = <object>callbacks.on_candidate
       if on_candidate:
-        on_candidate(candidate)
+        pc = PeerConnectionBase()
+        pc._peer = peer
+        on_candidate(pc, candidate)
 
-cdef void on_connect_callback(void *user_data):
+cdef void on_connect_callback(rtcdc_peer_connection *peer, void *user_data):
+  cdef PeerConnectionBase pc
   cdef peer_callbacks *callbacks
   callbacks = <peer_callbacks *>user_data
   if callbacks is not NULL:
     if callbacks.on_connect is not NULL:
       on_connect = <object>callbacks.on_connect
       if on_connect:
-        on_connect()
+        pc = PeerConnectionBase()
+        pc._peer = peer
+        on_connect(pc)
 
 cdef void on_open_callback(rtcdc_data_channel *channel, void *user_data):
   cdef DataChannel dc
@@ -103,9 +112,7 @@ cdef channel_callbacks *init_channel_callbacks():
   callbacks.on_close = NULL
   return callbacks
 
-cdef class PeerConnection:
-  cdef rtcdc_peer_connection *_peer
-
+cdef  class PeerConnection(PeerConnectionBase):
   def __cinit__(self, on_channel=None, on_candidate=None, on_connect=None, stun_server='', stun_port=0):
     cdef peer_callbacks *callbacks
     callbacks = init_peer_callbacks()
@@ -127,6 +134,9 @@ cdef class PeerConnection:
 
   def __dealloc__(self):
     self.destroy()
+
+cdef class PeerConnectionBase:
+  cdef rtcdc_peer_connection *_peer
 
   def destroy(self):
     if self._peer is not NULL:

@@ -389,7 +389,7 @@ startup_thread(gpointer user_data)
       sctp->handshake_done = TRUE;
 
       if (peer->on_connect)
-        peer->on_connect(peer->user_data);
+        peer->on_connect(peer, peer->user_data);
     }
   } else {
     sctp->stream_cursor = 1; // use odd streams
@@ -414,7 +414,7 @@ startup_thread(gpointer user_data)
       usrsctp_close(t);
 
       if (peer->on_connect)
-        peer->on_connect(peer->user_data);
+        peer->on_connect(peer, peer->user_data);
     } else {
 #ifdef DEBUG_SCTP
       fprintf(stderr, "SCTP acception failed\n");
