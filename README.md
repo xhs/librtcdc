@@ -26,12 +26,12 @@ def on_message(channel, datatype, data):
     channel.send_message(pyrtcdc.RTCDC_DATATYPE_STRING, 'Roger')
 
 # called when a channel is created by the remote peer
-def on_channel(channel):
+def on_channel(peer, channel):
     print 'channel %s created' %(channel.label)
     channel.on_message = on_message
 
 # called when a new local candidate is found
-def on_candidate(candidate):
+def on_candidate(peer, candidate):
     print 'local candidate sdp:\n%s' %(candidate)
 
 peer = PeerConnection(on_channel, on_candidate, stun_server='stun.services.mozilla.com')
