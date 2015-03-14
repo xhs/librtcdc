@@ -198,7 +198,7 @@ cdef class PeerConnectionBase:
 cdef class DataChannel:
   cdef rtcdc_data_channel *_channel
 
-  def send_message(self, int datatype, char *data):
+  def send(self, int datatype, char *data):
     if self._channel is NULL:
       return -1
     return crtcdc.rtcdc_send_message(self._channel, datatype, data, len(data))

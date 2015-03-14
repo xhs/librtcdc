@@ -12,7 +12,7 @@ def on_candidate(peer, candidate):
 
 def on_message(channel, datatype, data):
   print 'received data from channel %s: %s' %(channel.label, data)
-  channel.send_message(pyrtcdc.DATATYPE_STRING, 'hi')
+  channel.send(pyrtcdc.DATATYPE_STRING, 'hi')
 
 peer = pyrtcdc.PeerConnection(on_channel, on_candidate, stun_server='stun.services.mozilla.com')
 
