@@ -65,6 +65,29 @@ generate_local_sdp(struct rtcdc_transport *transport, int client)
   return strndup(buf, pos);
 }
 
+char *
+generate_local_candidate_sdp(struct rtcdc_transport *transport)
+{
+  if (transport == NULL || transport->ice == NULL)
+    return NULL;
+
+  char buf[BUFFER_SIZE];
+  memset(buf, 0, sizeof buf);
+
+  gchar *lsdp = nice_agent_generate_local_sdp(transport->ice->agent);
+  gchar **lines = g_strsplit(lsdp, "\n", 0);
+  g_free(lsdp);
+  int pos = 0;
+  for (int i = 0; lines && lines[i]; ++i) {
+    if (g_str_has_prefix(lines[i], "a=candidate:")) {
+      pos += sprintf(buf + pos, "%s\r\n", lines[i]);
+    }
+  }
+  g_strfreev(lines);
+
+  return strndup(buf, pos);
+}
+
 int
 parse_remote_sdp(struct ice_transport *ice, const char *rsdp)
 {

@@ -147,6 +147,9 @@ cdef class PeerConnectionBase:
   def generate_offer(self):
     return crtcdc.rtcdc_generate_offer_sdp(self._peer)
 
+  def generate_local_candidates(self):
+    return crtcdc.rtcdc_generate_local_candidate_sdp(self._peer)
+
   def parse_offer(self, char *offer):
     return crtcdc.rtcdc_parse_offer_sdp(self._peer, offer)
 

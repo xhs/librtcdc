@@ -45,6 +45,9 @@ cdef extern from "rtcdc.h":
   char * \
   rtcdc_generate_offer_sdp(rtcdc_peer_connection *peer)
 
+  char * \
+  rtcdc_generate_local_candidate_sdp(rtcdc_peer_connection *peer)
+
   int \
   rtcdc_parse_offer_sdp(rtcdc_peer_connection *peer, const char *offer)
 

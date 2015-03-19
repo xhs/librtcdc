@@ -15,6 +15,9 @@ struct ice_transport;
 char *
 generate_local_sdp(struct rtcdc_transport *transport, int client);
 
+char *
+generate_local_candidate_sdp(struct rtcdc_transport *transport);
+
 int
 parse_remote_sdp(struct ice_transport *ice, const char *rsdp);
 

@@ -172,6 +172,19 @@ rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer)
   return generate_local_sdp(peer->transport, client);
 }
 
+char *
+rtcdc_generate_local_candidate_sdp(struct rtcdc_peer_connection *peer)
+{
+  if (peer == NULL)
+    return NULL;
+
+  if (peer->transport == NULL) {
+    if (create_rtcdc_transport(peer, RTCDC_PEER_ROLE_CLIENT) < 0)
+      return NULL;
+  }
+  return generate_local_candidate_sdp(peer->transport);
+}
+
 int
 rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
 {
