@@ -53,6 +53,8 @@ create_rtcdc_transport(struct rtcdc_peer_connection *peer, int role)
   if (ice == NULL)
     goto ice_null_err;
 
+  peer->initialized = TRUE;
+
   if (0) {
 ice_null_err:
     destroy_sctp_transport(sctp);
@@ -441,8 +443,11 @@ startup_thread(gpointer user_data)
 void
 rtcdc_loop(struct rtcdc_peer_connection *peer)
 {
-  if (peer == NULL || peer->transport == NULL)
+  if (peer == NULL)
     return;
+
+  while (!peer->initialized)
+    g_usleep(50000);
 
   GThread *thread_ice = g_thread_new("ICE thread", &ice_thread, peer);
   GThread *thread_sctp = g_thread_new("SCTP thread", &sctp_thread, peer);

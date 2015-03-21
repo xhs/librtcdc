@@ -82,6 +82,7 @@ struct rtcdc_peer_connection {
   uint16_t stun_port;
   int exit_thread;
   struct rtcdc_transport *transport;
+  int initialized;
   int role;
   struct rtcdc_data_channel *channels[RTCDC_MAX_CHANNEL_NUM];
   rtcdc_on_channel_cb on_channel;
