@@ -206,9 +206,9 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
   int pos = 0;
   int remote_port = 0;
   for (int i = 0; lines && lines[i]; ++i) {
-    if (g_str_has_prefix(lines[i], "m=application")) {
-      char **columns = g_strsplit(lines[i], " ", 0);
-      remote_port = atoi(columns[3]);
+    if (g_str_has_prefix(lines[i], "a=sctp-port:")) {
+      char **columns = g_strsplit(lines[i], ":", 0);
+      remote_port = atoi(columns[1]);
       if (remote_port <= 0)
         return -1;
       peer->transport->sctp->remote_port = remote_port;
