@@ -5,6 +5,8 @@
 #ifndef _RTCDC_H_
 #define _RTCDC_H_
 
+#include <stdint.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -38,6 +40,7 @@ struct dtls_context;
 struct dtls_transport;
 struct sctp_transport;
 struct rtcdc_data_channel;
+struct rtcdc_peer_connection;
 
 typedef void (*rtcdc_on_open_cb)(struct rtcdc_data_channel *channel, void *user_data);
 

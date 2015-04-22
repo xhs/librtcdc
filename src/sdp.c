@@ -38,7 +38,7 @@ generate_local_sdp(struct rtcdc_transport *transport, int client)
     "s=-\r\n"
     "t=0 0\r\n"
     "a=msid-semantic: WMS\r\n");
-  pos += sprintf(buf + pos, "m=application 1 UDP/DTLS/SCTP webrtc-datachannel");
+  pos += sprintf(buf + pos, "m=application 1 UDP/DTLS/SCTP webrtc-datachannel\r\n");
   pos += sprintf(buf + pos, "c=IN IP4 0.0.0.0\r\n");
 
   gchar *lsdp = nice_agent_generate_local_sdp(ice->agent);
@@ -115,7 +115,7 @@ parse_remote_candidate_sdp(struct ice_transport *ice, const char *candidates)
   }
   g_strfreev(lines);
 
-  int ret = nice_agent_set_remote_candidates(ice->agent, ice->stream_id, g_slist_length(list), list);
+  int ret = nice_agent_set_remote_candidates(ice->agent, ice->stream_id, 1, list);
   g_slist_free_full(list, (GDestroyNotify)&nice_candidate_free);
 
   return ret;
