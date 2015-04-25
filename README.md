@@ -3,7 +3,7 @@
 #### Features
 
 * Tiny <2k LOC, easy to understand/bind/extend
-* Talks with each other, Chrome(39/40), Firefox?, Opera?
+* Talks with each other, latest Chrome/Chromium, Firefox, Opera?, Safari?
 * 'Official' Python binding
 * Lack of docs
 
