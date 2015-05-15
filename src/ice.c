@@ -180,7 +180,7 @@ ice_thread(gpointer user_data)
   if (peer->exit_thread)
     return NULL;
 
-  // need a external thread to start SCTP when DTLS handshake is done
+  // need an external thread to start SCTP when DTLS handshake is done
   char buf[BUFFER_SIZE];
   while (!peer->exit_thread) {
     if (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
