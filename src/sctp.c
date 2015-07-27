@@ -286,6 +286,8 @@ send_sctp_message(struct sctp_transport *sctp,
 #endif
       return -1;
     }
+    
+    return 0;
   }
 
   struct sctp_message *msg = (struct sctp_message *)calloc(1, sizeof *msg);
