@@ -2,9 +2,8 @@
 # Copyright (c) 2015 Xiaohan Song <chef@dark.kitchen>
 # This file is licensed under a BSD license.
 
-CC=gcc
-CFLAGS=-g -O2 -DINET -DINET6 -DDEBUG_SCTP -Wno-deprecated `pkg-config --cflags openssl nice`
-LDFLAGS=`pkg-config --libs openssl nice` -lusrsctp -lpthread
+CFLAGS+=-g -O2 -DINET -DINET6 -DDEBUG_SCTP -fPIC -Wno-deprecated `pkg-config --cflags openssl nice`
+LDFLAGS+=`pkg-config --libs openssl nice` -lusrsctp -lpthread
 SOURCES=util.c dtls.c sctp.c ice.c sdp.c dcep.c rtcdc.c
 OBJECTS=$(SOURCES:.c=.o)
 NAME=rtcdc
