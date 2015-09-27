@@ -12,7 +12,7 @@
 * Python & Cython (only for Python binding)
 * ICE - [libnice](http://nice.freedesktop.org/wiki/) (>= 0.1.8)
 * DTLS - [OpenSSL](https://www.openssl.org/)
-* SCTP - [usrsctp](https://sctp-refimpl.googlecode.com/svn/trunk/KERN/usrsctp/)
+* SCTP - [usrsctp](https://github.com/sctplab/usrsctp)
 
 #### Python demo
 
