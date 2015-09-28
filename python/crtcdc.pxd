@@ -40,7 +40,7 @@ cdef extern from "rtcdc.h":
                                const char *stun_server, uint16_t port, void *user_data)
 
   void \
-  rtcdc_destroy_peer_connection(rtcdc_peer_connection *peer)
+  rtcdc_destroy_peer_connection(rtcdc_peer_connection *peer) nogil
 
   char * \
   rtcdc_generate_offer_sdp(rtcdc_peer_connection *peer)
@@ -70,4 +70,4 @@ cdef extern from "rtcdc.h":
   rtcdc_send_message(rtcdc_data_channel *channel, int datatype, void *data, size_t length)
 
   void \
-  rtcdc_loop(rtcdc_peer_connection *peer)
+  rtcdc_loop(rtcdc_peer_connection *peer) nogil
