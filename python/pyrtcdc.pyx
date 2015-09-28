@@ -15,7 +15,7 @@ DATATYPE_STRING = 0
 DATATYPE_BINARY = 1
 DATATYPE_EMPTY  = 2
 
-cdef void on_channel_callback(rtcdc_peer_connection *peer, rtcdc_data_channel *channel, void *user_data):
+cdef void on_channel_callback(rtcdc_peer_connection *peer, rtcdc_data_channel *channel, void *user_data) with gil:
   cdef PeerConnectionBase pc
   cdef DataChannel dc
   cdef peer_callbacks *callbacks
@@ -30,7 +30,7 @@ cdef void on_channel_callback(rtcdc_peer_connection *peer, rtcdc_data_channel *c
         pc._peer = peer
         on_channel(pc, dc)
 
-cdef void on_candidate_callback(rtcdc_peer_connection *peer, const char *candidate, void *user_data):
+cdef void on_candidate_callback(rtcdc_peer_connection *peer, const char *candidate, void *user_data) with gil:
   cdef PeerConnectionBase pc
   cdef peer_callbacks *callbacks
   callbacks = <peer_callbacks *>user_data
@@ -42,7 +42,7 @@ cdef void on_candidate_callback(rtcdc_peer_connection *peer, const char *candida
         pc._peer = peer
         on_candidate(pc, candidate)
 
-cdef void on_connect_callback(rtcdc_peer_connection *peer, void *user_data):
+cdef void on_connect_callback(rtcdc_peer_connection *peer, void *user_data) with gil:
   cdef PeerConnectionBase pc
   cdef peer_callbacks *callbacks
   callbacks = <peer_callbacks *>user_data
@@ -54,7 +54,7 @@ cdef void on_connect_callback(rtcdc_peer_connection *peer, void *user_data):
         pc._peer = peer
         on_connect(pc)
 
-cdef void on_open_callback(rtcdc_data_channel *channel, void *user_data):
+cdef void on_open_callback(rtcdc_data_channel *channel, void *user_data) with gil:
   cdef DataChannel dc
   cdef channel_callbacks *callbacks
   callbacks = <channel_callbacks *>user_data
@@ -67,7 +67,7 @@ cdef void on_open_callback(rtcdc_data_channel *channel, void *user_data):
         on_open(dc)
 
 cdef void on_message_callback(rtcdc_data_channel *channel, \
-                              int datatype, void *data, size_t length, void *user_data):
+                              int datatype, void *data, size_t length, void *user_data) with gil:
   cdef DataChannel dc
   cdef channel_callbacks *callbacks
   callbacks = <channel_callbacks *>user_data
@@ -80,7 +80,7 @@ cdef void on_message_callback(rtcdc_data_channel *channel, \
         buf = <char*>data
         on_message(dc, datatype, buf[:length])
 
-cdef void on_close_callback(rtcdc_data_channel *channel, void *user_data):
+cdef void on_close_callback(rtcdc_data_channel *channel, void *user_data) with gil:
   cdef DataChannel dc
   cdef channel_callbacks *callbacks
   callbacks = <channel_callbacks *>user_data
@@ -142,7 +142,9 @@ cdef class PeerConnectionBase:
     if self._peer is not NULL:
       if self._peer.user_data is not NULL:
         free(self._peer.user_data)
-      crtcdc.rtcdc_destroy_peer_connection(self._peer)
+        self._peer.user_data = NULL
+      with nogil:
+        crtcdc.rtcdc_destroy_peer_connection(self._peer)
 
   def generate_offer(self):
     return crtcdc.rtcdc_generate_offer_sdp(self._peer)
@@ -181,7 +183,8 @@ cdef class PeerConnectionBase:
     return self._peer.stun_port
 
   def loop(self):
-    crtcdc.rtcdc_loop(self._peer)
+    with nogil:
+      crtcdc.rtcdc_loop(self._peer)
 
   def __setattr__(self, name, value):
     cdef peer_callbacks *callbacks
