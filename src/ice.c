@@ -19,6 +19,9 @@ candidate_gathering_done_cb(NiceAgent *agent, guint stream_id, gpointer user_dat
   struct rtcdc_transport *transport = peer->transport;
   struct ice_transport *ice = transport->ice;
   ice->gathering_done = TRUE;
+  if (peer->on_candidate) {
+    peer->on_candidate(peer, "", peer->user_data);
+  }
 }
 
 static void
