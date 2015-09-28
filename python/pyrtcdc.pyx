@@ -142,6 +142,7 @@ cdef class PeerConnectionBase:
     if self._peer is not NULL:
       if self._peer.user_data is not NULL:
         free(self._peer.user_data)
+        self._peer.user_data = NULL
       with nogil:
         crtcdc.rtcdc_destroy_peer_connection(self._peer)
 
