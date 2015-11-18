@@ -171,7 +171,7 @@ rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer)
       return NULL;
   }
   int client = peer->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
-  return generate_local_sdp(peer->transport, client);
+  return generate_local_sdp(peer->transport, peer->enable_draft_8, client, peer->have_offer);
 }
 
 char *
@@ -206,13 +206,17 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
   int pos = 0;
   int remote_port = 0;
   for (int i = 0; lines && lines[i]; ++i) {
-    if (g_str_has_prefix(lines[i], "m=application")) {
-      char **columns = g_strsplit(lines[i], " ", 0);
-      remote_port = atoi(columns[3]);
+    if (g_str_has_prefix(lines[i], "a=sctp-port:")) {
+      char **columns = g_strsplit(lines[i], ":", 0);
+      remote_port = atoi(columns[1]);
       if (remote_port <= 0)
         return -1;
       peer->transport->sctp->remote_port = remote_port;
       g_strfreev(columns);
+      peer->enable_draft_8 = TRUE;
+#ifdef DEBUG_SCTP
+      fprintf(stderr, "New SDP detected, switching to draft-8 mode\n");
+#endif
     } else if (g_str_has_prefix(lines[i], "a=setup:")) {
       char **columns = g_strsplit(lines[i], ":", 0);
       if (strcmp(columns[1], "active") == 0 && peer->role == RTCDC_PEER_ROLE_CLIENT) {
@@ -224,16 +228,17 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
       }
       g_strfreev(columns);
     } else if (g_str_has_prefix(lines[i], "a=sctpmap:")) {
+        peer->enable_draft_8 = FALSE;
+#ifdef DEBUG_SCTP
+        fprintf(stderr, "Old SDP detected, switching to non draft-8 mode\n");
+#endif
         char **columns = g_strsplit(lines[i], " ", 0);
         char **cols2 = g_strsplit(columns[0], ":", 0);
-        fprintf(stderr, "sctpmap parsing port: %s\n", cols2[1]);
         remote_port = atoi(cols2[1]);
-        if (remote_port <= 0) {
-            fprintf(stderr, "Invalid remote port\n");
+        if (remote_port <= 0)
             return -1;
-        }
+
         peer->transport->sctp->remote_port = remote_port;
-        fprintf(stderr, "SCTPMAP - New remote port: %d\n", remote_port);
         g_strfreev(cols2);
         g_strfreev(columns);
     }
@@ -241,7 +246,11 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
   }
   g_strfreev(lines);
 
-  return parse_remote_sdp(peer->transport->ice, buf);
+  int res = parse_remote_sdp(peer->transport->ice, buf);
+  if (res >= 0)
+    peer->have_offer = TRUE;
+
+  return res;
 }
 
 int

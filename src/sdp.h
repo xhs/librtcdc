@@ -13,7 +13,7 @@ struct rtcdc_transport;
 struct ice_transport;
 
 char *
-generate_local_sdp(struct rtcdc_transport *transport, int client);
+generate_local_sdp(struct rtcdc_transport *transport, int draft_8, int client, int answer);
 
 char *
 generate_local_candidate_sdp(struct rtcdc_transport *transport);
