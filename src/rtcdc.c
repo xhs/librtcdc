@@ -206,9 +206,9 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
   int pos = 0;
   int remote_port = 0;
   for (int i = 0; lines && lines[i]; ++i) {
-    if (g_str_has_prefix(lines[i], "a=sctp-port:")) {
-      char **columns = g_strsplit(lines[i], ":", 0);
-      remote_port = atoi(columns[1]);
+    if (g_str_has_prefix(lines[i], "m=application")) {
+      char **columns = g_strsplit(lines[i], " ", 0);
+      remote_port = atoi(columns[3]);
       if (remote_port <= 0)
         return -1;
       peer->transport->sctp->remote_port = remote_port;
@@ -223,6 +223,19 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
         // nothing to do
       }
       g_strfreev(columns);
+    } else if (g_str_has_prefix(lines[i], "a=sctpmap:")) {
+        char **columns = g_strsplit(lines[i], " ", 0);
+        char **cols2 = g_strsplit(columns[0], ":", 0);
+        fprintf(stderr, "sctpmap parsing port: %s\n", cols2[1]);
+        remote_port = atoi(cols2[1]);
+        if (remote_port <= 0) {
+            fprintf(stderr, "Invalid remote port\n");
+            return -1;
+        }
+        peer->transport->sctp->remote_port = remote_port;
+        fprintf(stderr, "SCTPMAP - New remote port: %d\n", remote_port);
+        g_strfreev(cols2);
+        g_strfreev(columns);
     }
     pos += sprintf(buf + pos, "%s\n", lines[i]);
   }
@@ -411,7 +424,7 @@ startup_thread(gpointer user_data)
     struct sockaddr_conn sconn;
     memset(&sconn, 0, sizeof sconn);
     sconn.sconn_family = AF_CONN;
-    sconn.sconn_port = htons(sctp->local_port);
+    sconn.sconn_port = htons(sctp->remote_port);
     sconn.sconn_addr = (void *)sctp;
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
     sconn.sconn_len = sizeof *sctp;

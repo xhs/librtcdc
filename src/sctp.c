@@ -71,7 +71,7 @@ create_sctp_transport(struct rtcdc_peer_connection *peer)
   if (sctp == NULL)
     return NULL;
   peer->transport->sctp = sctp;
-  sctp->local_port = random_integer(10000, 60000);
+  sctp->local_port = 5000; // XXX: Hardcoded for now
 
   if (g_sctp_ref == 0) {
     usrsctp_init(0, sctp_data_ready_cb, NULL);
