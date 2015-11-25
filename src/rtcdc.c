@@ -16,6 +16,7 @@
 #include "dcep.h"
 #include "rtcdc.h"
 #include "common.h"
+#include "log.h"
 
 static struct dtls_context *g_dtls_context = NULL;
 static int g_context_ref = 0;
@@ -23,35 +24,47 @@ static int g_context_ref = 0;
 static int
 create_rtcdc_transport(struct rtcdc_peer_connection *peer, int role)
 {
-  if (peer == NULL)
+  if (peer == NULL) {
+    log_msg("Peer is null\n");
     return -1;
+  }
 
   struct rtcdc_transport *transport =
     (struct rtcdc_transport *)calloc(1, sizeof *transport);
-  if (transport == NULL)
+  if (transport == NULL) {
+    log_msg("calloc fail\n");
     return -1;
+  }
   peer->transport = transport;
   peer->role = role;
 
   if (g_dtls_context == NULL) {
     g_dtls_context = create_dtls_context("librtcdc");
-    if (g_dtls_context == NULL)
+    if (g_dtls_context == NULL) {
+      log_msg("dtls context failure\n");
       goto ctx_null_err;
+    }
   }
   transport->ctx = g_dtls_context;
   g_context_ref++;
 
   struct dtls_transport *dtls = create_dtls_transport(peer, transport->ctx);
-  if (dtls == NULL)
+  if (dtls == NULL) {
+    log_msg("dtls null\n");
     goto dtls_null_err;
+  }
 
   struct sctp_transport *sctp = create_sctp_transport(peer);
-  if (sctp == NULL)
+  if (sctp == NULL) {
+    log_msg("sctp transport NULL\n");
     goto sctp_null_err;
+  }
 
   struct ice_transport *ice = create_ice_transport(peer, peer->stun_server, peer->stun_port);
-  if (ice == NULL)
+  if (ice == NULL) {
+    log_msg("ice null\n");
     goto ice_null_err;
+  }
 
   peer->initialized = TRUE;
 
@@ -111,7 +124,7 @@ rtcdc_create_peer_connection(rtcdc_on_channel_cb on_channel,
     struct addrinfo hints, *servinfo;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
-    
+
     if ((getaddrinfo(stun_server, NULL, &hints, &servinfo)) != 0)
       return NULL;
 
@@ -163,12 +176,16 @@ rtcdc_destroy_peer_connection(struct rtcdc_peer_connection *peer)
 char *
 rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer)
 {
-  if (peer == NULL)
+  if (peer == NULL) {
+    log_msg("Peer is null?\n");
     return NULL;
-  
+  }
+
   if (peer->transport == NULL) {
-    if (create_rtcdc_transport(peer, RTCDC_PEER_ROLE_CLIENT) < 0)
+    if (create_rtcdc_transport(peer, RTCDC_PEER_ROLE_CLIENT) < 0) {
+      log_msg("Failed to create rtcdc_transport\n");
       return NULL;
+    }
   }
   int client = peer->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
   return generate_local_sdp(peer->transport, peer->enable_draft_8, client, peer->have_offer);
@@ -215,7 +232,7 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
       g_strfreev(columns);
       peer->enable_draft_8 = TRUE;
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "New SDP detected, switching to draft-8 mode\n");
+      log_msg("New SDP detected, switching to draft-8 mode\n");
 #endif
     } else if (g_str_has_prefix(lines[i], "a=setup:")) {
       char **columns = g_strsplit(lines[i], ":", 0);
@@ -230,7 +247,7 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
     } else if (g_str_has_prefix(lines[i], "a=sctpmap:")) {
         peer->enable_draft_8 = FALSE;
 #ifdef DEBUG_SCTP
-        fprintf(stderr, "Old SDP detected, switching to non draft-8 mode\n");
+        log_msg("Old SDP detected, switching to non draft-8 mode\n");
 #endif
         char **columns = g_strsplit(lines[i], " ", 0);
         char **cols2 = g_strsplit(columns[0], ":", 0);
@@ -352,8 +369,10 @@ rtcdc_destroy_data_channel(struct rtcdc_data_channel *channel)
 int
 rtcdc_send_message(struct rtcdc_data_channel *channel, int datatype, void *data, size_t len)
 {
-  if (channel == NULL)
+  if (channel == NULL) {
+    log_msg("NULL channel wtf?\n");
     return -1;
+  }
 
   int ppid;
   if (datatype == RTCDC_DATATYPE_STRING) {
@@ -382,27 +401,41 @@ startup_thread(gpointer user_data)
   struct sctp_transport *sctp = transport->sctp;
 
   while (!peer->exit_thread && !ice->negotiation_done)
-    g_usleep(2500);
+    g_usleep(500);
   if (peer->exit_thread)
     return NULL;
 
 #ifdef DEBUG_SCTP
-  fprintf(stderr, "ICE negotiation done\n");
+  log_msg("ICE negotiation done\n");
 #endif
 
-  if (peer->role == RTCDC_PEER_ROLE_CLIENT)
+  g_mutex_lock(&dtls->dtls_mutex);
+  if (peer->role == RTCDC_PEER_ROLE_CLIENT) {
+    log_msg("Client connect state\n");
     SSL_set_connect_state(dtls->ssl);
-  else
+  } else {
+    log_msg("Server accept state\n");
     SSL_set_accept_state(dtls->ssl);
+  }
+
+  char buf[BUFFER_SIZE];
+  log_msg("SSL do handshake\n");
   SSL_do_handshake(dtls->ssl);
+  while (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
+    int nbytes = BIO_read(dtls->outgoing_bio, buf, sizeof buf);
+    if (nbytes > 0) {
+      g_queue_push_tail(dtls->outgoing_queue, create_sctp_message(buf, nbytes));
+    }
+  }
+  g_mutex_unlock(&dtls->dtls_mutex);
 
   while (!peer->exit_thread && !dtls->handshake_done)
-    g_usleep(2500);
+    g_usleep(500);
   if (peer->exit_thread)
     return NULL;
 
 #ifdef DEBUG_SCTP
-  fprintf(stderr, "DTLS handshake done\n");
+  log_msg("DTLS handshake done\n");
 #endif
 
   if (peer->role == RTCDC_PEER_ROLE_CLIENT) {
@@ -415,13 +448,13 @@ startup_thread(gpointer user_data)
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
     sconn.sconn_len = sizeof *sctp;
 #endif
-    if (usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn) < 0) {
-#ifdef DEBUG_SCTP
-      fprintf(stderr, "SCTP connection failed\n");
-#endif
+    log_msg("usrsctp_connect\n");
+    int connect_result = usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn);
+    if ((connect_result < 0) && (errno != EINPROGRESS)) {
+      log_msg("SCTP connection failed with errnor: %ld\n", errno);
     } else {
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "SCTP connected\n");
+      log_msg("SCTP connected\n");
 #endif
       sctp->handshake_done = TRUE;
 
@@ -443,7 +476,7 @@ startup_thread(gpointer user_data)
     struct socket *s = usrsctp_accept(sctp->sock, (struct sockaddr *)&sconn, &len);
     if (s) {
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "SCTP accepted\n");
+      log_msg("SCTP accepted\n");
 #endif
       sctp->handshake_done = TRUE;
       struct socket *t = sctp->sock;
@@ -454,7 +487,7 @@ startup_thread(gpointer user_data)
         peer->on_connect(peer, peer->user_data);
     } else {
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "SCTP acception failed\n");
+      log_msg("SCTP acception failed\n");
 #endif
     }
   }
@@ -469,7 +502,7 @@ rtcdc_loop(struct rtcdc_peer_connection *peer)
     return;
 
   while (!peer->initialized)
-    g_usleep(50000);
+    g_usleep(500);
 
   GThread *thread_ice = g_thread_new("ICE thread", &ice_thread, peer);
   GThread *thread_sctp = g_thread_new("SCTP thread", &sctp_thread, peer);

@@ -14,12 +14,15 @@
 #include "ice.h"
 #include "rtcdc.h"
 #include "sdp.h"
+#include "log.h"
 
 char *
 generate_local_sdp(struct rtcdc_transport *transport, int draft_8, int client, int answer)
 {
-  if (transport == NULL)
+  if (transport == NULL) {
+    log_msg("generate local sdp for null transport\n");
     return NULL;
+  }
 
   struct ice_transport *ice = transport->ice;
   struct sctp_transport *sctp = transport->sctp;
@@ -102,15 +105,16 @@ parse_remote_sdp(struct ice_transport *ice, const char *rsdp)
 {
   if (ice == NULL || ice->agent == NULL || rsdp == NULL)
     return -1;
-  
+
   return nice_agent_parse_remote_sdp(ice->agent, rsdp);
 }
 
 int
 parse_remote_candidate_sdp(struct ice_transport *ice, const char *candidates)
 {
-  if (ice == NULL || ice->agent == NULL || candidates == NULL)
+  if (ice == NULL || ice->agent == NULL || candidates == NULL || ice->negotiation_done) {
     return -1;
+  }
 
   char **lines;
   lines = g_strsplit(candidates, "\r\n", 0);

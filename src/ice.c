@@ -11,6 +11,7 @@
 #include "sctp.h"
 #include "ice.h"
 #include "rtcdc.h"
+#include "log.h"
 
 static void
 candidate_gathering_done_cb(NiceAgent *agent, guint stream_id, gpointer user_data)
@@ -25,7 +26,7 @@ candidate_gathering_done_cb(NiceAgent *agent, guint stream_id, gpointer user_dat
 }
 
 static void
-component_state_changed_cb(NiceAgent *agent, guint stream_id, 
+component_state_changed_cb(NiceAgent *agent, guint stream_id,
   guint component_id, guint state, gpointer user_data)
 {
   //...
@@ -62,28 +63,41 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
   struct ice_transport *ice = transport->ice;
   struct dtls_transport *dtls = transport->dtls;
   struct sctp_transport *sctp = transport->sctp;
-  if (!ice->negotiation_done)
+  unsigned char read_buf[BUFFER_SIZE];
+
+  if (!ice->negotiation_done) {
+    log_msg("Received data before ice negotiation complete\n");
     return;
+  }
+
+  log_msg("Nice agent received message of size: %d\n", len);
 
   g_mutex_lock(&dtls->dtls_mutex);
   BIO_write(dtls->incoming_bio, buf, len);
+  int nbytes = SSL_read(dtls->ssl, read_buf, sizeof(read_buf));
+  if (!dtls->handshake_done) {
+    if (SSL_is_init_finished(dtls->ssl)) {
+      dtls->handshake_done = TRUE;
+      log_msg("dtls handshake is done\n");
+    } else if (BIO_ctrl_pending(dtls->outgoing_bio)) {
+      char out_buf[BUFFER_SIZE];
+      while (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
+        int nbytes = BIO_read(dtls->outgoing_bio, out_buf, sizeof(out_buf));
+        if (nbytes > 0) {
+          g_queue_push_tail(dtls->outgoing_queue, create_sctp_message(out_buf, nbytes));
+        }
+      }
+    }
+  }
   g_mutex_unlock(&dtls->dtls_mutex);
 
-  if (!dtls->handshake_done && SSL_is_init_finished(dtls->ssl))
-    dtls->handshake_done = TRUE;
-
-  if (!dtls->handshake_done) {
-    g_mutex_lock(&dtls->dtls_mutex);
-    SSL_do_handshake(dtls->ssl);
-    g_mutex_unlock(&dtls->dtls_mutex);
+  if (nbytes > 0) {
+    g_mutex_lock(&sctp->sctp_mutex);
+    log_msg("Sending decrypted message of size %d to sctp\n", nbytes);
+    g_queue_push_tail(sctp->in_messages, create_sctp_message(read_buf, nbytes));
+    g_mutex_unlock(&sctp->sctp_mutex);
   } else {
-    unsigned char buf[BUFFER_SIZE];
-    int nbytes = SSL_read(dtls->ssl, buf, sizeof buf);
-    if (nbytes > 0) {
-      g_mutex_lock(&sctp->sctp_mutex);
-      BIO_write(sctp->incoming_bio, buf, nbytes);
-      g_mutex_unlock(&sctp->sctp_mutex);
-    }
+    log_msg("No data received from DTLS for message: %d\n", len);
   }
 }
 
@@ -183,29 +197,28 @@ ice_thread(gpointer user_data)
   if (peer->exit_thread)
     return NULL;
 
-  // need an external thread to start SCTP when DTLS handshake is done
   char buf[BUFFER_SIZE];
-  while (!peer->exit_thread) {
-    if (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
-      g_mutex_lock(&dtls->dtls_mutex);
-      int nbytes = BIO_read(dtls->outgoing_bio, buf, sizeof buf);
-      g_mutex_unlock(&dtls->dtls_mutex);
 
-      if (nbytes > 0) {
-        nice_agent_send(ice->agent, ice->stream_id, 1, nbytes, buf);
-      }
-    } else {
-      g_usleep(2500);
-    }
+  // need an external thread to start SCTP when DTLS handshake is done
+  while (!peer->exit_thread) {
+    g_mutex_lock(&dtls->dtls_mutex);
 
     if (!dtls->handshake_done) {
-      g_mutex_lock(&dtls->dtls_mutex);
-      SSL_do_handshake(dtls->ssl);
-      g_mutex_unlock(&dtls->dtls_mutex);
-
-      if (SSL_is_init_finished(dtls->ssl))
+      if (SSL_is_init_finished(dtls->ssl)) {
         dtls->handshake_done = TRUE;
+      }
     }
+
+    while (!g_queue_is_empty(dtls->outgoing_queue)) {
+      struct sctp_message *msg = g_queue_pop_head(dtls->outgoing_queue);
+      log_msg("Nice agent sending msg of size: %d\n", msg->len);
+      nice_agent_send(ice->agent, ice->stream_id, 1, msg->len, msg->data);
+      free(msg->data);
+      free(msg);
+    }
+    g_mutex_unlock(&dtls->dtls_mutex);
+
+    g_usleep(500);
   }
 
   return NULL;

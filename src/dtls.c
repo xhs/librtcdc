@@ -71,7 +71,7 @@ gen_cert(EVP_PKEY* pkey, const char *common, int days) {
     goto cert_err;
 
   if (0) {
-cert_err:  
+cert_err:
     X509_free(x509);
     x509 = NULL;
   }
@@ -121,7 +121,7 @@ create_dtls_context(const char *common)
   if (cert == NULL)
     goto ctx_err;
   SSL_CTX_use_certificate(ctx, cert);
-  
+
   if (SSL_CTX_check_private_key(ctx) != 1)
     goto ctx_err;
 
@@ -185,6 +185,8 @@ create_dtls_transport(struct rtcdc_peer_connection *peer,
     goto trans_err;
   BIO_set_mem_eof_return(bio, -1);
   dtls->outgoing_bio = bio;
+
+  dtls->outgoing_queue = g_queue_new();
 
   SSL_set_bio(dtls->ssl, dtls->incoming_bio, dtls->outgoing_bio);
 
