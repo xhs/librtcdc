@@ -26,6 +26,7 @@ struct dtls_transport {
   SSL *ssl;
   BIO *incoming_bio;
   BIO *outgoing_bio;
+  GQueue *outgoing_queue;
   gboolean handshake_done;
   GMutex dtls_mutex;
 };

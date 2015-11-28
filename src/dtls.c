@@ -186,6 +186,10 @@ create_dtls_transport(struct rtcdc_peer_connection *peer,
   BIO_set_mem_eof_return(bio, -1);
   dtls->outgoing_bio = bio;
 
+  dtls->outgoing_queue = g_queue_new();
+  if (dtls->outgoing_queue == NULL)
+    goto trans_err;
+
   SSL_set_bio(dtls->ssl, dtls->incoming_bio, dtls->outgoing_bio);
 
   EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
