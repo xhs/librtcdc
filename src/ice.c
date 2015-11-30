@@ -69,15 +69,16 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
   g_mutex_lock(&dtls->dtls_mutex);
   BIO_write(dtls->incoming_bio, buf, len);
   int nbytes = SSL_read(dtls->ssl, read_buf, sizeof(read_buf));
+  flush_dtls_outgoing_bio(dtls);
   if (!dtls->handshake_done) {
     if (SSL_is_init_finished(dtls->ssl)) {
       dtls->handshake_done = TRUE;
     } else {
       SSL_do_handshake(dtls->ssl);
+      flush_dtls_outgoing_bio(dtls);
     }
   }
 
-  flush_dtls_outgoing_bio(dtls);
   g_mutex_unlock(&dtls->dtls_mutex);
 
   if (dtls->handshake_done && (nbytes > 0)) {
@@ -204,17 +205,6 @@ ice_thread(gpointer user_data)
 
     g_mutex_unlock(&dtls->dtls_mutex);
     g_usleep(2500);
-
-
-    if (!dtls->handshake_done) {
-      g_mutex_lock(&dtls->dtls_mutex);
-      SSL_do_handshake(dtls->ssl);
-      flush_dtls_outgoing_bio(dtls);
-      g_mutex_unlock(&dtls->dtls_mutex);
-
-      if (SSL_is_init_finished(dtls->ssl))
-        dtls->handshake_done = TRUE;
-    }
   }
 
   return NULL;
