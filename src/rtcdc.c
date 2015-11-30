@@ -213,6 +213,7 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
         return -1;
       peer->transport->sctp->remote_port = remote_port;
       g_strfreev(columns);
+      peer->enable_draft_8 = TRUE;
     } else if (g_str_has_prefix(lines[i], "a=setup:")) {
       char **columns = g_strsplit(lines[i], ":", 0);
       if (strcmp(columns[1], "active") == 0 && peer->role == RTCDC_PEER_ROLE_CLIENT) {
@@ -223,12 +224,27 @@ rtcdc_parse_offer_sdp(struct rtcdc_peer_connection *peer, const char *offer)
         // nothing to do
       }
       g_strfreev(columns);
+    } else if (g_str_has_prefix(lines[i], "a=sctpmap:")) {
+      peer->enable_draft_8 = FALSE;
+      char **cols1 = g_strsplit(lines[i], " ", 0);
+      char **cols2 = g_strsplit(cols1[0], ":", 0);
+      remote_port = atoi(cols2[1]);
+      if (remote_port <= 0)
+        return -1;
+
+      peer->transport->sctp->remote_port = remote_port;
+      g_strfreev(cols2);
+      g_strfreev(cols1);
     }
     pos += sprintf(buf + pos, "%s\n", lines[i]);
   }
   g_strfreev(lines);
 
-  return parse_remote_sdp(peer->transport->ice, buf);
+  int res = parse_remote_sdp(peer->transport->ice, buf);
+  if (res >= 0)
+    peer->have_offer = TRUE;
+
+  return res;
 }
 
 int
