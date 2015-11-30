@@ -171,7 +171,7 @@ rtcdc_generate_offer_sdp(struct rtcdc_peer_connection *peer)
       return NULL;
   }
   int client = peer->role == RTCDC_PEER_ROLE_CLIENT ? 1 : 0;
-  return generate_local_sdp(peer->transport, client);
+  return generate_local_sdp(peer->transport, client, peer->enable_draft_8, peer->have_offer);
 }
 
 char *
