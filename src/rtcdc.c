@@ -375,13 +375,8 @@ startup_thread(gpointer user_data)
     SSL_set_accept_state(dtls->ssl);
   SSL_do_handshake(dtls->ssl);
 
-  char read_buf[BUFFER_SIZE];
-  while (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
-    int nbytes = BIO_read(dtls->outgoing_bio, read_buf, sizeof(read_buf));
-    if (nbytes > 0) {
-      g_queue_push_tail(dtls->outgoing_queue, create_sctp_message(read_buf, nbytes));
-    }
-  }
+  flush_dtls_outgoing_bio(dtls);
+
   g_mutex_unlock(&dtls->dtls_mutex);
 
   while (!peer->exit_thread && !dtls->handshake_done)

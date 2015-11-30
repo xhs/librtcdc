@@ -77,15 +77,7 @@ data_received_cb(NiceAgent *agent, guint stream_id, guint component_id,
     }
   }
 
-  if (BIO_ctrl_pending(dtls->outgoing_bio)) {
-    char out_buf[BUFFER_SIZE];
-    while (BIO_ctrl_pending(dtls->outgoing_bio)) {
-      int send_bytes = BIO_read(dtls->outgoing_bio, out_buf, sizeof(out_buf));
-      if (send_bytes > 0) {
-        g_queue_push_tail(dtls->outgoing_queue, create_sctp_message(out_buf, send_bytes));
-      }
-    }
-  }
+  flush_dtls_outgoing_bio(dtls);
   g_mutex_unlock(&dtls->dtls_mutex);
 
   if (dtls->handshake_done && (nbytes > 0)) {
@@ -201,8 +193,8 @@ ice_thread(gpointer user_data)
       }
     }
 
-    while (!g_queue_is_empty(dtls->outgoing_queue)) {
-      struct sctp_message *msg = g_queue_pop_head(dtls->outgoing_queue);
+    while (!g_queue_is_empty(dtls->outgoing_q)) {
+      struct sctp_message *msg = g_queue_pop_head(dtls->outgoing_q);
       g_mutex_unlock(&dtls->dtls_mutex);
       nice_agent_send(ice->agent, ice->stream_id, 1, msg->len, msg->data);
       free(msg->data);
@@ -213,21 +205,11 @@ ice_thread(gpointer user_data)
     g_mutex_unlock(&dtls->dtls_mutex);
     g_usleep(2500);
 
-    if (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
-      g_mutex_lock(&dtls->dtls_mutex);
-      int nbytes = BIO_read(dtls->outgoing_bio, buf, sizeof buf);
-      g_mutex_unlock(&dtls->dtls_mutex);
-
-      if (nbytes > 0) {
-        nice_agent_send(ice->agent, ice->stream_id, 1, nbytes, buf);
-      }
-    } else {
-      g_usleep(2500);
-    }
 
     if (!dtls->handshake_done) {
       g_mutex_lock(&dtls->dtls_mutex);
       SSL_do_handshake(dtls->ssl);
+      flush_dtls_outgoing_bio(dtls);
       g_mutex_unlock(&dtls->dtls_mutex);
 
       if (SSL_is_init_finished(dtls->ssl))

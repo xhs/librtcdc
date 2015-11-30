@@ -240,12 +240,7 @@ sctp_thread(gpointer user_data)
         g_mutex_unlock(&sctp->sctp_mutex);
         g_mutex_lock(&dtls->dtls_mutex);
         SSL_write(dtls->ssl, msg->data, msg->len);
-        while (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
-          int dtls_bytes = BIO_read(dtls->outgoing_bio, buf, sizeof(buf));
-          if (dtls_bytes > 0) {
-            g_queue_push_tail(dtls->outgoing_queue, create_sctp_message(buf, dtls_bytes));
-          }
-        }
+        flush_dtls_outgoing_bio(dtls);
         g_mutex_unlock(&dtls->dtls_mutex);
         g_mutex_lock(&sctp->sctp_mutex);
         sent_data = 1;
