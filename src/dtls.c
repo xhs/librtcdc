@@ -71,7 +71,7 @@ gen_cert(EVP_PKEY* pkey, const char *common, int days) {
     goto cert_err;
 
   if (0) {
-cert_err:  
+cert_err:
     X509_free(x509);
     x509 = NULL;
   }
@@ -121,7 +121,7 @@ create_dtls_context(const char *common)
   if (cert == NULL)
     goto ctx_err;
   SSL_CTX_use_certificate(ctx, cert);
-  
+
   if (SSL_CTX_check_private_key(ctx) != 1)
     goto ctx_err;
 
@@ -131,7 +131,7 @@ create_dtls_context(const char *common)
 
   char *p = context->fingerprint;
   for (int i = 0; i < len; ++i) {
-    snprintf(p, 4, "%02X:", buf[i]);
+    snprintf(p, 3, "%02X:", buf[i]);
     p += 3;
   }
   *(p - 1) = 0;
