@@ -9,19 +9,50 @@
 #include "sctp.h"
 #include "dcep.h"
 #include "rtcdc.h"
+#include "log.h"
 
 static int g_sctp_ref = 0;
 
-static int interested_events[] = {
-  //...
+static uint16_t interested_events[] = {
+  SCTP_ASSOC_CHANGE,
+  SCTP_PEER_ADDR_CHANGE,
+  SCTP_REMOTE_ERROR,
+  SCTP_SEND_FAILED,
+  SCTP_SENDER_DRY_EVENT,
+  SCTP_SHUTDOWN_EVENT,
+  SCTP_ADAPTATION_INDICATION,
+  SCTP_PARTIAL_DELIVERY_EVENT,
+  SCTP_AUTHENTICATION_EVENT,
+  SCTP_STREAM_RESET_EVENT,
+  SCTP_ASSOC_RESET_EVENT,
+  SCTP_STREAM_CHANGE_EVENT,
+  SCTP_SEND_FAILED_EVENT
 };
+
+struct sctp_message *create_sctp_message(void *data, size_t len)
+{
+  struct sctp_message *message = malloc(sizeof(struct sctp_message));
+
+  message->len = len;
+  message->data = malloc(len);
+  memcpy(message->data, data, len);
+
+  return message;
+}
 
 static int
 sctp_data_ready_cb(void *reg_addr, void *data, size_t len, uint8_t tos, uint8_t set_df)
 {
   struct sctp_transport *sctp = (struct sctp_transport *)reg_addr;
   g_mutex_lock(&sctp->sctp_mutex);
-  BIO_write(sctp->outgoing_bio, data, len);
+  if (sctp->out_messages != NULL)
+  {
+    g_queue_push_tail(sctp->out_messages, create_sctp_message(data, len));
+  }
+  else
+  {
+    fprintf(stderr, "tried to handle message before queue created\n");
+  }
   g_mutex_unlock(&sctp->sctp_mutex);
   return 0;
 }
@@ -29,15 +60,69 @@ sctp_data_ready_cb(void *reg_addr, void *data, size_t len, uint8_t tos, uint8_t 
 static void
 handle_notification_message(struct rtcdc_peer_connection *peer, union sctp_notification *notify, size_t len)
 {
-  //...
+  if (notify->sn_header.sn_length != (uint32_t)len) {
+		log_msg("Weird header length in notifcation msg\n");
+    return;
+	}
+
+	switch (notify->sn_header.sn_type) {
+		case SCTP_ASSOC_CHANGE:
+			log_msg("ASSOC_CHANGE\n");
+			break;
+		case SCTP_PEER_ADDR_CHANGE:
+      log_msg("PEER_ADDR_CHANGE\n");
+			break;
+		case SCTP_REMOTE_ERROR:
+      log_msg("REMOTE_ERROR\n");
+			break;
+    case SCTP_SEND_FAILED_EVENT:
+      log_msg("SEND_FAILED_EVENT\n");
+      break;
+		case SCTP_SHUTDOWN_EVENT:
+      log_msg("SHUTDOWN_EVENT\n");
+			break;
+		case SCTP_ADAPTATION_INDICATION:
+      log_msg("ADAPTATION_INDICATION\n");
+			break;
+		case SCTP_PARTIAL_DELIVERY_EVENT:
+      log_msg("PARTIAL_DELIVERY_EVENT\n");
+			break;
+		case SCTP_AUTHENTICATION_EVENT:
+      log_msg("AUTH_EVENT\n");
+			break;
+		case SCTP_SENDER_DRY_EVENT:
+      log_msg("SENDER_DRY\n");
+			break;
+		case SCTP_NOTIFICATIONS_STOPPED_EVENT:
+      log_msg("NOTIFICATIONS_STOPPED\n");
+			break;
+		case SCTP_STREAM_RESET_EVENT:
+      log_msg("STREAM RESET EVENT\n");
+			break;
+		case SCTP_ASSOC_RESET_EVENT:
+      log_msg("ASSOC_RESET_EVENT\n");
+			break;
+		case SCTP_STREAM_CHANGE_EVENT:
+      log_msg("STREAM_CHANGE_EVENT\n");
+			break;
+		default:
+			break;
+	}
 }
 
 static int
 sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data,
                       size_t len, struct sctp_rcvinfo recv_info, int flags, void *user_data)
 {
-  if (user_data == NULL || len == 0)
+  if (user_data == NULL) {
+    log_msg("SCTP received data we're not ready to handle\n");
     return -1;
+  }
+
+  if (len == 0) {
+    log_msg("SCTP received empty message\n");
+    return 0;
+  }
 
   struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
   struct rtcdc_transport *transport = peer->transport;
@@ -53,9 +138,13 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
 #endif
 
   if (flags & MSG_NOTIFICATION)
+  {
+    log_msg("notification\n");
     handle_notification_message(peer, (union sctp_notification *)data, len);
-  else
+  } else {
+    log_msg("rtcdc\n");
     handle_rtcdc_message(peer, data, len, ntohl(recv_info.rcv_ppid), recv_info.rcv_sid);
+  }
 
   free(data);
   return 0;
@@ -64,39 +153,40 @@ sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data
 struct sctp_transport *
 create_sctp_transport(struct rtcdc_peer_connection *peer)
 {
-  if (peer == NULL || peer->transport == NULL)
+  if (peer == NULL || peer->transport == NULL) {
+    log_msg("Something is NULL\n");
     return NULL;
+  }
 
   struct sctp_transport *sctp = (struct sctp_transport *)calloc(1, sizeof *sctp);
-  if (sctp == NULL)
+  if (sctp == NULL) {
+    log_msg("Calloc failure\n");
     return NULL;
+  }
   peer->transport->sctp = sctp;
-  sctp->local_port = random_integer(10000, 60000);
+  sctp->local_port = 5000; // XXX: Hardcoded for now
 
   if (g_sctp_ref == 0) {
     usrsctp_init(0, sctp_data_ready_cb, NULL);
     usrsctp_sysctl_set_sctp_ecn_enable(0);
+    usrsctp_sysctl_set_sctp_enable_sack_immediately(1);
+    usrsctp_sysctl_set_sctp_max_burst_default(20);
+    usrsctp_sysctl_set_sctp_use_cwnd_based_maxburst(0);
+    usrsctp_sysctl_set_sctp_initial_cwnd(10);
   }
   g_sctp_ref++;
 
   usrsctp_register_address(sctp);
   struct socket *s = usrsctp_socket(AF_CONN, SOCK_STREAM, IPPROTO_SCTP,
                                     sctp_data_received_cb, NULL, 0, peer);
-  if (s == NULL)
+  if (s == NULL) {
+    log_msg("usrsctp_socket null\n");
     goto trans_err;
+  }
   sctp->sock = s;
 
-  BIO *bio = BIO_new(BIO_s_mem());
-  if (bio == NULL)
-    goto trans_err;
-  BIO_set_mem_eof_return(bio, -1);
-  sctp->incoming_bio = bio;
-
-  bio = BIO_new(BIO_s_mem());
-  if (bio == NULL)
-    goto trans_err;
-  BIO_set_mem_eof_return(bio, -1);
-  sctp->outgoing_bio = bio;
+  sctp->in_messages = g_queue_new();
+  sctp->out_messages = g_queue_new();
 
 #ifdef DEBUG_SCTP
   int sd;
@@ -128,7 +218,7 @@ create_sctp_transport(struct rtcdc_peer_connection *peer)
   struct sctp_paddrparams peer_param;
   memset(&peer_param, 0, sizeof peer_param);
   peer_param.spp_flags = SPP_PMTUD_DISABLE;
-  peer_param.spp_pathmtu = 1200;
+  peer_param.spp_pathmtu = 1024;
   usrsctp_setsockopt(s, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS, &peer_param, sizeof peer_param);
 
   struct sctp_assoc_value av;
@@ -138,6 +228,24 @@ create_sctp_transport(struct rtcdc_peer_connection *peer)
 
   uint32_t nodelay = 1;
   usrsctp_setsockopt(s, IPPROTO_SCTP, SCTP_NODELAY, &nodelay, sizeof nodelay);
+
+  /* Enable the events of interest */
+  struct sctp_event event;
+  memset(&event, 0, sizeof(event));
+  event.se_assoc_id = SCTP_ALL_ASSOC;
+  event.se_on = 1;
+  int num_events = sizeof(interested_events) / sizeof(uint16_t);
+  for (int i = 0; i < num_events; i++) {
+  	event.se_type = interested_events[i];
+  	if (usrsctp_setsockopt(s, IPPROTO_SCTP, SCTP_EVENT, &event, sizeof(event)) < 0) {
+      log_msg("Setsockopt failed: %d\n", i);
+      peer->transport->sctp = NULL;
+      usrsctp_finish();
+      free(sctp);
+  		sctp = NULL;
+  		return NULL;
+  	}
+  }
 
   struct sctp_initmsg init_msg;
   memset(&init_msg, 0, sizeof init_msg);
@@ -176,8 +284,8 @@ destroy_sctp_transport(struct sctp_transport *sctp)
 
   usrsctp_close(sctp->sock);
   usrsctp_deregister_address(sctp);
-  BIO_free_all(sctp->incoming_bio);
-  BIO_free_all(sctp->outgoing_bio);
+  g_queue_free(sctp->in_messages);
+  g_queue_free(sctp->out_messages);
 #ifdef DEBUG_SCTP
   close(sctp->incoming_stub);
   close(sctp->outgoing_stub);
@@ -204,6 +312,7 @@ sctp_thread(gpointer user_data)
   struct ice_transport *ice = transport->ice;
   struct dtls_transport *dtls = transport->dtls;
   struct sctp_transport *sctp = transport->sctp;
+  int sent_data = 0;
 
   while (!peer->exit_thread && !ice->negotiation_done)
     g_usleep(2500);
@@ -217,34 +326,55 @@ sctp_thread(gpointer user_data)
 
   char buf[BUFFER_SIZE];
   while (!peer->exit_thread) {
-    if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0)
+    g_mutex_lock(&sctp->sctp_mutex);
+    if (g_queue_is_empty(sctp->out_messages) && (g_queue_is_empty(sctp->in_messages) && sent_data))  {
+      g_mutex_unlock(&sctp->sctp_mutex);
       g_usleep(2500);
-
-    if (BIO_ctrl_pending(sctp->incoming_bio) > 0) {
-      g_mutex_lock(&sctp->sctp_mutex);
-      int nbytes = BIO_read(sctp->incoming_bio, buf, sizeof buf);
-      g_mutex_unlock(&sctp->sctp_mutex);
-#ifdef DEBUG_SCTP
-      send(sctp->incoming_stub, buf, nbytes, 0);
-#endif
-      if (nbytes > 0) {
-        usrsctp_conninput(sctp, buf, nbytes, 0);
-      }
+      continue;
     }
 
-    if (BIO_ctrl_pending(sctp->outgoing_bio) > 0) {
-      g_mutex_lock(&sctp->sctp_mutex);
-      int nbytes = BIO_read(sctp->outgoing_bio, buf, sizeof buf);
-      g_mutex_unlock(&sctp->sctp_mutex);
-#ifdef DEBUG_SCTP
-      send(sctp->outgoing_stub, buf, nbytes, 0);
-#endif
-      if (nbytes > 0) {
+    if (!g_queue_is_empty(sctp->out_messages)) {
+      struct sctp_message *msg = g_queue_pop_head(sctp->out_messages);
+
+      if (msg->len > 0) {
+        log_msg("SCTP: Got some data to send: %d\n", msg->len);
+        g_mutex_unlock(&sctp->sctp_mutex);
         g_mutex_lock(&dtls->dtls_mutex);
-        SSL_write(dtls->ssl, buf, nbytes);
+        SSL_write(dtls->ssl, msg->data, msg->len);
+        while (BIO_ctrl_pending(dtls->outgoing_bio) > 0) {
+          int nbytes = BIO_read(dtls->outgoing_bio, buf, sizeof buf);
+          if (nbytes > 0) {
+            g_queue_push_tail(dtls->outgoing_queue, create_sctp_message(buf, nbytes));
+          }
+        }
         g_mutex_unlock(&dtls->dtls_mutex);
+        g_mutex_lock(&sctp->sctp_mutex);
+        log_msg("SCTP: Sent data %d\n", msg->len);
+        sent_data = 1;
+        free(msg->data);
       }
+
+      free(msg);
     }
+
+    if (!g_queue_is_empty(sctp->in_messages) && sent_data) {
+      struct sctp_message *msg = g_queue_pop_head(sctp->in_messages);
+
+      if (msg->len > 0) {
+        log_msg("SCTP: got some data to handle %d\n", msg->len);
+        g_mutex_unlock(&sctp->sctp_mutex);
+
+        usrsctp_conninput(sctp, msg->data, msg->len, 0);
+
+        g_mutex_lock(&sctp->sctp_mutex);
+        log_msg("SCTP: handled %d\n", msg->len);
+        free(msg->data);
+      } else {
+        log_msg("SCTP: Ignoring empty message\n");
+      }
+      free(msg);
+    }
+    g_mutex_unlock(&sctp->sctp_mutex);
   }
 
   return NULL;
@@ -254,8 +384,10 @@ int
 send_sctp_message(struct sctp_transport *sctp,
                   void *data, size_t len, uint16_t sid, uint32_t ppid)
 {
-  if (sctp == NULL || sctp->deferred_messages == NULL)
+  if (sctp == NULL || sctp->deferred_messages == NULL) {
+    log_msg("SCTP: Bad sctp context on send message\n");
     return -1;
+  }
 
   if (sctp->handshake_done) {
     struct sctp_message *m;
@@ -263,12 +395,12 @@ send_sctp_message(struct sctp_transport *sctp,
       struct sctp_sndinfo info;
       memset(&info, 0, sizeof info);
       info.snd_sid = m->sid;
-      info.snd_flags = SCTP_EOR;
+      // info.snd_flags = SCTP_EOR;
       info.snd_ppid = htonl(m->ppid);
       if (usrsctp_sendv(sctp->sock, m->data, m->len, NULL, 0,
                         &info, sizeof info, SCTP_SENDV_SNDINFO, 0) < 0) {
 #ifdef DEBUG_SCTP
-        fprintf(stderr, "sending deferred SCTP message failed\n");
+        log_msg("sending deferred SCTP message failed\n");
 #endif
       }
       free(m);
@@ -277,28 +409,31 @@ send_sctp_message(struct sctp_transport *sctp,
     struct sctp_sndinfo info;
     memset(&info, 0, sizeof info);
     info.snd_sid = sid;
-    info.snd_flags = SCTP_EOR;
+    //info.snd_flags = SCTP_EOR;
     info.snd_ppid = htonl(ppid);
     if (usrsctp_sendv(sctp->sock, data, len, NULL, 0,
                       &info, sizeof info, SCTP_SENDV_SNDINFO, 0) < 0) {
 #ifdef DEBUG_SCTP
-      fprintf(stderr, "sending SCTP message failed\n");
+      log_msg("sending SCTP message failed\n");
 #endif
       return -1;
     }
-    
+
     return 0;
   }
 
   struct sctp_message *msg = (struct sctp_message *)calloc(1, sizeof *msg);
-  if (msg == NULL)
+  if (msg == NULL) {
+    log_msg("SCTP: Bad calloc\n");
     return -1;
+  }
 
   msg->data = data;
   msg->len = len;
   msg->sid = sid;
   msg->ppid = ppid;
   g_async_queue_push(sctp->deferred_messages, msg);
+  log_msg("Pushed new deferred message\n");
 
   return 0;
 }

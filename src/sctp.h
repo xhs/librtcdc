@@ -24,8 +24,8 @@ struct sctp_message {
 
 struct sctp_transport {
   struct socket *sock;
-  BIO *incoming_bio;
-  BIO *outgoing_bio;
+  GQueue *in_messages;
+  GQueue *out_messages;
   int local_port;
   int remote_port;
   gboolean handshake_done;
@@ -48,6 +48,8 @@ destroy_sctp_transport(struct sctp_transport *sctp);
 int
 send_sctp_message(struct sctp_transport *sctp,
                   void *data, size_t len, uint16_t sid, uint32_t ppid);
+
+struct sctp_message *create_sctp_message(void *data, size_t len);
 
 gpointer
 sctp_thread(gpointer peer);
