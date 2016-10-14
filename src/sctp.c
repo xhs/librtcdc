@@ -34,12 +34,12 @@ handle_notification_message(struct rtcdc_peer_connection *peer, union sctp_notif
 
 static int
 sctp_data_received_cb(struct socket *sock, union sctp_sockstore addr, void *data,
-                      size_t len, struct sctp_rcvinfo recv_info, int flags, void *user_data)
+                      size_t len, struct sctp_rcvinfo recv_info, int flags, void *peer_data)
 {
-  if (user_data == NULL || len == 0)
+  if (peer_data == NULL || len == 0)
     return -1;
 
-  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)user_data;
+  struct rtcdc_peer_connection *peer = (struct rtcdc_peer_connection *)peer_data;
   struct rtcdc_transport *transport = peer->transport;
   struct sctp_transport *sctp = transport->sctp;
 
@@ -286,7 +286,7 @@ send_sctp_message(struct sctp_transport *sctp,
 #endif
       return -1;
     }
-    
+
     return 0;
   }
 
