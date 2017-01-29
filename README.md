@@ -1,5 +1,7 @@
 ## librtcdc is a tiny WebRTC DataChannel implementation that works everywhere (Beta).
 
+**BEING REWRITEN**
+
 #### Features
 
 * Tiny <2k LOC, easy to understand/bind/extend
