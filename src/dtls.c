@@ -131,10 +131,13 @@ create_dtls_context(const char *common)
 
   char *p = context->fingerprint;
   for (int i = 0; i < len; ++i) {
-    snprintf(p, 3, "%02X:", buf[i]);
+    if (i != len - 1) {
+      snprintf(p, 4, "%02X:", buf[i]);
+    } else {
+      snprintf(p, 3, "%02X", buf[i]);
+    }
     p += 3;
   }
-  *(p - 1) = 0;
 
   if (0) {
 ctx_err:
