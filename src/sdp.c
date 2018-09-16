@@ -16,7 +16,7 @@
 #include "sdp.h"
 
 char *
-generate_local_sdp(struct rtcdc_transport *transport, int client)
+generate_local_sdp(struct rtcdc_transport *transport, int client, int draft_8, int answer)
 {
   if (transport == NULL)
     return NULL;
@@ -38,7 +38,12 @@ generate_local_sdp(struct rtcdc_transport *transport, int client)
     "s=-\r\n"
     "t=0 0\r\n"
     "a=msid-semantic: WMS\r\n");
-  pos += sprintf(buf + pos, "m=application 1 UDP/DTLS/SCTP webrtc-datachannel\r\n");
+
+  if (draft_8)
+    pos += sprintf(buf + pos, "m=application 1 UDP/DTLS/SCTP webrtc-datachannel\r\n");
+  else
+    pos += sprintf(buf + pos, "m=application 9 DTLS/SCTP 5000\r\n");
+
   pos += sprintf(buf + pos, "c=IN IP4 0.0.0.0\r\n");
 
   gchar *lsdp = nice_agent_generate_local_sdp(ice->agent);
@@ -54,13 +59,17 @@ generate_local_sdp(struct rtcdc_transport *transport, int client)
 
   pos += sprintf(buf + pos, "a=fingerprint:sha-256 %s\r\n", ctx->fingerprint);
 
-  if (client)
+  if (answer)
     pos += sprintf(buf + pos, "a=setup:active\r\n");
   else
-    pos += sprintf(buf + pos, "a=setup:passive\r\n");
+    pos += sprintf(buf + pos, "a=setup:actpass\r\n");
 
   pos += sprintf(buf + pos, "a=mid:data\r\n");
-  pos += sprintf(buf + pos, "a=sctp-port:%d\r\n", sctp->local_port);
+
+  if (draft_8)
+    pos += sprintf(buf + pos, "a=sctp-port:%d\r\n", sctp->local_port);
+  else
+    pos += sprintf(buf + pos, "a=sctpmap:%d webrtc-datachannel 1024\r\n", sctp->local_port);
 
   return strndup(buf, pos);
 }

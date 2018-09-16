@@ -24,8 +24,8 @@ struct sctp_message {
 
 struct sctp_transport {
   struct socket *sock;
-  BIO *incoming_bio;
-  BIO *outgoing_bio;
+  GQueue *incoming_q;
+  GQueue *outgoing_q;
   int local_port;
   int remote_port;
   gboolean handshake_done;
@@ -51,6 +51,9 @@ send_sctp_message(struct sctp_transport *sctp,
 
 gpointer
 sctp_thread(gpointer peer);
+
+struct sctp_message *
+create_sctp_message(void *data, size_t len);
 
 #ifdef  __cplusplus
 }

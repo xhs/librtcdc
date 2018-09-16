@@ -21,7 +21,10 @@ sctp_data_ready_cb(void *reg_addr, void *data, size_t len, uint8_t tos, uint8_t 
 {
   struct sctp_transport *sctp = (struct sctp_transport *)reg_addr;
   g_mutex_lock(&sctp->sctp_mutex);
-  BIO_write(sctp->outgoing_bio, data, len);
+  if (sctp->outgoing_q != NULL)
+    g_queue_push_tail(sctp->outgoing_q, create_sctp_message(data, len));
+  else
+    fprintf(stderr, "Tried to handle sctp message before queue initialization\n");
   g_mutex_unlock(&sctp->sctp_mutex);
   return 0;
 }
@@ -71,7 +74,7 @@ create_sctp_transport(struct rtcdc_peer_connection *peer)
   if (sctp == NULL)
     return NULL;
   peer->transport->sctp = sctp;
-  sctp->local_port = random_integer(10000, 60000);
+  sctp->local_port = 5000; // XXX: Hardcoded for now
 
   if (g_sctp_ref == 0) {
     usrsctp_init(0, sctp_data_ready_cb, NULL);
@@ -86,17 +89,10 @@ create_sctp_transport(struct rtcdc_peer_connection *peer)
     goto trans_err;
   sctp->sock = s;
 
-  BIO *bio = BIO_new(BIO_s_mem());
-  if (bio == NULL)
+  sctp->incoming_q = g_queue_new();
+  sctp->outgoing_q = g_queue_new();
+  if ((sctp->incoming_q == NULL) || (sctp->outgoing_q == NULL))
     goto trans_err;
-  BIO_set_mem_eof_return(bio, -1);
-  sctp->incoming_bio = bio;
-
-  bio = BIO_new(BIO_s_mem());
-  if (bio == NULL)
-    goto trans_err;
-  BIO_set_mem_eof_return(bio, -1);
-  sctp->outgoing_bio = bio;
 
 #ifdef DEBUG_SCTP
   int sd;
@@ -176,8 +172,8 @@ destroy_sctp_transport(struct sctp_transport *sctp)
 
   usrsctp_close(sctp->sock);
   usrsctp_deregister_address(sctp);
-  BIO_free_all(sctp->incoming_bio);
-  BIO_free_all(sctp->outgoing_bio);
+  g_queue_free(sctp->incoming_q);
+  g_queue_free(sctp->outgoing_q);
 #ifdef DEBUG_SCTP
   close(sctp->incoming_stub);
   close(sctp->outgoing_stub);
@@ -196,6 +192,18 @@ destroy_sctp_transport(struct sctp_transport *sctp)
   }
 }
 
+struct sctp_message *
+create_sctp_message(void *data, size_t len)
+{
+  struct sctp_message *msg = malloc(sizeof(struct sctp_message));
+
+  msg->len = len;
+  msg->data = malloc(len);
+  memcpy(msg->data, data, len);
+
+  return msg;
+}
+
 gpointer
 sctp_thread(gpointer user_data)
 {
@@ -204,6 +212,7 @@ sctp_thread(gpointer user_data)
   struct ice_transport *ice = transport->ice;
   struct dtls_transport *dtls = transport->dtls;
   struct sctp_transport *sctp = transport->sctp;
+  int sent_data = 0; // XXX: Only receive once we've sent a packet
 
   while (!peer->exit_thread && !ice->negotiation_done)
     g_usleep(2500);
@@ -217,34 +226,41 @@ sctp_thread(gpointer user_data)
 
   char buf[BUFFER_SIZE];
   while (!peer->exit_thread) {
-    if (BIO_ctrl_pending(sctp->incoming_bio) <= 0 && BIO_ctrl_pending(sctp->outgoing_bio) <= 0)
-      g_usleep(2500);
-
-    if (BIO_ctrl_pending(sctp->incoming_bio) > 0) {
-      g_mutex_lock(&sctp->sctp_mutex);
-      int nbytes = BIO_read(sctp->incoming_bio, buf, sizeof buf);
+    g_mutex_lock(&sctp->sctp_mutex);
+    if (g_queue_is_empty(sctp->outgoing_q) && (sent_data && g_queue_is_empty(sctp->incoming_q))) {
       g_mutex_unlock(&sctp->sctp_mutex);
-#ifdef DEBUG_SCTP
-      send(sctp->incoming_stub, buf, nbytes, 0);
-#endif
-      if (nbytes > 0) {
-        usrsctp_conninput(sctp, buf, nbytes, 0);
-      }
+      g_usleep(500);
+      continue;
     }
 
-    if (BIO_ctrl_pending(sctp->outgoing_bio) > 0) {
-      g_mutex_lock(&sctp->sctp_mutex);
-      int nbytes = BIO_read(sctp->outgoing_bio, buf, sizeof buf);
-      g_mutex_unlock(&sctp->sctp_mutex);
-#ifdef DEBUG_SCTP
-      send(sctp->outgoing_stub, buf, nbytes, 0);
-#endif
-      if (nbytes > 0) {
+    if (!g_queue_is_empty(sctp->outgoing_q)) {
+      struct sctp_message *msg = g_queue_pop_head(sctp->outgoing_q);
+
+      if (msg->len > 0) {
+        g_mutex_unlock(&sctp->sctp_mutex);
         g_mutex_lock(&dtls->dtls_mutex);
-        SSL_write(dtls->ssl, buf, nbytes);
+        SSL_write(dtls->ssl, msg->data, msg->len);
+        flush_dtls_outgoing_bio(dtls);
         g_mutex_unlock(&dtls->dtls_mutex);
+        g_mutex_lock(&sctp->sctp_mutex);
+        sent_data = 1;
+        free(msg->data);
       }
+      free(msg);
     }
+
+    if (!g_queue_is_empty(sctp->incoming_q) && sent_data) {
+      struct sctp_message *msg = g_queue_pop_head(sctp->incoming_q);
+      if (msg->len > 0) {
+        g_mutex_unlock(&sctp->sctp_mutex);
+        usrsctp_conninput(sctp, msg->data, msg->len, 0);
+        g_mutex_lock(&sctp->sctp_mutex);
+        free(msg->data);
+      }
+      free(msg);
+    }
+
+    g_mutex_unlock(&sctp->sctp_mutex);
   }
 
   return NULL;

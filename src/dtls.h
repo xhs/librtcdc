@@ -26,6 +26,7 @@ struct dtls_transport {
   SSL *ssl;
   BIO *incoming_bio;
   BIO *outgoing_bio;
+  GQueue *outgoing_q;
   gboolean handshake_done;
   GMutex dtls_mutex;
 };
@@ -42,6 +43,9 @@ create_dtls_transport(struct rtcdc_peer_connection *peer,
 
 void
 destroy_dtls_transport(struct dtls_transport *dtls);
+
+void
+flush_dtls_outgoing_bio(struct dtls_transport *dtls);
 
 #ifdef  __cplusplus
 }
