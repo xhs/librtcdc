@@ -13,6 +13,7 @@
 #include "common.h"
 #include "dtls.h"
 #include "rtcdc.h"
+#include "sctp.h"
 
 static EVP_PKEY *
 gen_key()
@@ -186,6 +187,10 @@ create_dtls_transport(struct rtcdc_peer_connection *peer,
   BIO_set_mem_eof_return(bio, -1);
   dtls->outgoing_bio = bio;
 
+  dtls->outgoing_q = g_queue_new();
+  if (dtls->outgoing_q == NULL)
+    goto trans_err;
+
   SSL_set_bio(dtls->ssl, dtls->incoming_bio, dtls->outgoing_bio);
 
   EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
@@ -213,4 +218,22 @@ destroy_dtls_transport(struct dtls_transport *dtls)
   SSL_free(dtls->ssl);
   free(dtls);
   dtls = NULL;
+}
+
+void
+flush_dtls_outgoing_bio(struct dtls_transport *dtls)
+{
+  if ((dtls == NULL) || (dtls->outgoing_bio == NULL) || (dtls->outgoing_q == NULL))
+    return;
+
+  char buf[BUFFER_SIZE];
+  while (BIO_ctrl_pending(dtls->outgoing_bio)) {
+    int nbytes = BIO_read(dtls->outgoing_bio, buf, sizeof(buf));
+    if (nbytes > 0) {
+      struct sctp_message *msg = create_sctp_message(buf, nbytes);
+      if (msg != NULL) {
+        g_queue_push_tail(dtls->outgoing_q, msg);
+      }
+    }
+  }
 }

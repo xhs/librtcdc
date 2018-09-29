@@ -368,11 +368,16 @@ startup_thread(gpointer user_data)
   fprintf(stderr, "ICE negotiation done\n");
 #endif
 
+  g_mutex_lock(&dtls->dtls_mutex);
   if (peer->role == RTCDC_PEER_ROLE_CLIENT)
     SSL_set_connect_state(dtls->ssl);
   else
     SSL_set_accept_state(dtls->ssl);
   SSL_do_handshake(dtls->ssl);
+
+  flush_dtls_outgoing_bio(dtls);
+
+  g_mutex_unlock(&dtls->dtls_mutex);
 
   while (!peer->exit_thread && !dtls->handshake_done)
     g_usleep(2500);
@@ -393,7 +398,8 @@ startup_thread(gpointer user_data)
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
     sconn.sconn_len = sizeof *sctp;
 #endif
-    if (usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn) < 0) {
+    int connect_result = usrsctp_connect(sctp->sock, (struct sockaddr *)&sconn, sizeof sconn);
+    if ((connect_result < 0) && (errno != EINPROGRESS)) {
 #ifdef DEBUG_SCTP
       fprintf(stderr, "SCTP connection failed\n");
 #endif
@@ -401,6 +407,7 @@ startup_thread(gpointer user_data)
 #ifdef DEBUG_SCTP
       fprintf(stderr, "SCTP connected\n");
 #endif
+      // XXX: This logic isn't 100% correct
       sctp->handshake_done = TRUE;
 
       if (peer->on_connect)
